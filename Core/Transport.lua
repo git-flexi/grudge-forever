@@ -27,7 +27,8 @@ function Transport:transmit(text, prio)
 end
 
 -- prio is "NORMAL" or "BULK". Messages are encoded right away so a queued
--- message cannot change afterwards.
+-- message cannot change afterwards. Messages still queued from a lockdown that
+-- ended go out first, so nothing overtakes them.
 function Transport:Send(msg, prio)
   if not IsInGuild() then return end
   local text = ns.Codec.Encode(msg, "comm")
@@ -36,6 +37,7 @@ function Transport:Send(msg, prio)
     if #self.queue > MAX_QUEUE then table.remove(self.queue, 1) end
     return
   end
+  self:Flush()
   self:transmit(text, prio)
 end
 
@@ -54,7 +56,9 @@ function Transport:OnComm(prefix, data, distribution, sender)
   if prefix ~= ns.Const.PREFIX or distribution ~= "GUILD" then return end
   local ok, msg = pcall(ns.Codec.Decode, data, "comm")
   if not ok or type(msg) ~= "table" then return end
-  self.onMessage(msg, sender)
+  -- a failing handler must not break AceComm's delivery of later messages; the error is still shown
+  local handled, err = pcall(self.onMessage, msg, sender)
+  if not handled and geterrorhandler then geterrorhandler()(err) end
 end
 
 function Transport:Register()

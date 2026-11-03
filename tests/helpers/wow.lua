@@ -18,6 +18,8 @@ local GLOBALS = {
   "GetGuildInfo", "GetNumGuildMembers", "GetGuildRosterInfo", "C_GuildInfo", "GetCVarBool",
   "IsInGroup", "IsInRaid", "GetNumGroupMembers", "PlaySound", "PlaySoundFile", "DEFAULT_CHAT_FRAME",
   "SlashCmdList", "SLASH_GRUDGEFOREVER1", "SLASH_GRUDGEFOREVER2", "date",
+  -- installed by single tests only
+  "geterrorhandler",
   -- installed by wow.installUI() only
   "hooksecurefunc", "securecallfunction", "GetTime", "GetFramerate", "ChatThrottleLib", "C_UIFileAsset",
   "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",

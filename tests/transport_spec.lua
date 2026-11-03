@@ -108,6 +108,18 @@ describe("Transport", function()
       assert.equals(0, #comm.sent)
     end)
 
+    it("sends still queued messages first when the lockdown ended before the next Flush", function()
+      wow.lockdown = true
+      transport:Send({ n = 1 }, "NORMAL")
+      transport:Send({ n = 2 }, "BULK")
+      wow.lockdown = false
+      transport:Send({ n = 3 }, "NORMAL")
+      assert.equals(3, #comm.sent)
+      for i = 1, 3 do assert.same({ n = i }, decoded(comm.sent[i])) end
+      transport:Flush()
+      assert.equals(3, #comm.sent)
+    end)
+
     it("treats a missing lockdown API as no lockdown", function()
       C_ChatInfo.InChatMessagingLockdown = nil
       transport:Send({ n = 1 }, "NORMAL")
@@ -140,6 +152,28 @@ describe("Transport", function()
         transport:OnComm(ns.Const.PREFIX, payload("text"), "GUILD", "Bob")
       end)
       assert.equals(0, #received)
+    end)
+
+    it("keeps receiving after a handler error", function()
+      local calls = 0
+      local t = ns.Transport.New({ comm = comm, onMessage = function()
+        calls = calls + 1
+        error("boom")
+      end })
+      assert.has_no.errors(function()
+        t:OnComm(ns.Const.PREFIX, payload({ t = "R" }), "GUILD", "Bob")
+        t:OnComm(ns.Const.PREFIX, payload({ t = "R" }), "GUILD", "Bob")
+      end)
+      assert.equals(2, calls)
+    end)
+
+    it("reports a handler error to the client's error handler", function()
+      local reported = {}
+      _G.geterrorhandler = function() return function(err) reported[#reported + 1] = err end end
+      local t = ns.Transport.New({ comm = comm, onMessage = function() error("boom") end })
+      t:OnComm(ns.Const.PREFIX, payload({ t = "R" }), "GUILD", "Bob")
+      assert.equals(1, #reported)
+      assert.truthy(tostring(reported[1]):find("boom", 1, true))
     end)
   end)
 
