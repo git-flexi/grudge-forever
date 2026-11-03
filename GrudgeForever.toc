@@ -20,7 +20,12 @@ Core\Transport.lua
 Core\Alerts.lua
 Core\Options.lua
 Core\Detect.lua
+Core\Slash.lua
 UI\Banner.lua
 UI\OptionsPanel.lua
 UI\Tooltip.lua
 UI\UnitMenu.lua
+UI\EditDialog.lua
+UI\TextDialog.lua
+UI\MainWindow.lua
+Core\Core.lua

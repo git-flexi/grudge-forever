@@ -4,15 +4,22 @@ max_line_length = 120
 -- every addon file starts with `local ADDON, ns = ...`; ADDON is often unused
 ignore = { "211/ADDON" }
 
--- WoW APIs used by the addon (later tasks extend this list)
+-- WoW APIs used by the addon
 read_globals = {
   "issecretvalue", "UnitExists", "UnitIsPlayer", "UnitName", "UnitFactionGroup",
   "GetLocale", "GetServerTime", "C_Timer", "C_ChatInfo", "IsInGuild", "LibStub",
   "CreateFrame", "UIParent", "TooltipDataProcessor", "Enum", "Menu", "Settings",
+  "GetGuildInfo", "GetNumGuildMembers", "GetGuildRosterInfo", "C_GuildInfo", "GetCVarBool",
+  "IsInGroup", "IsInRaid", "GetNumGroupMembers", "PlaySound", "PlaySoundFile", "DEFAULT_CHAT_FRAME", "date",
+  "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
+  "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants", "StaticPopup_Show",
 }
 
--- the single addon-owned global
-globals = { "GrudgeForeverDB" }
+-- addon-owned globals, plus client tables the addon registers into
+globals = {
+  "GrudgeForeverDB", "SLASH_GRUDGEFOREVER1", "SLASH_GRUDGEFOREVER2", "SlashCmdList",
+  "StaticPopupDialogs", "UISpecialFrames",
+}
 
 files["tests/**"] = {
   std = "+busted",
@@ -21,5 +28,12 @@ files["tests/**"] = {
     "issecretvalue", "UnitExists", "UnitIsPlayer", "UnitName", "UnitFactionGroup",
     "GetLocale", "GetServerTime", "C_Timer", "C_ChatInfo", "IsInGuild", "LibStub",
     "CreateFrame", "UIParent", "GrudgeForeverDB", "TooltipDataProcessor", "Enum", "Menu",
+    "GetGuildInfo", "GetNumGuildMembers", "GetGuildRosterInfo", "C_GuildInfo", "GetCVarBool",
+    "IsInGroup", "IsInRaid", "GetNumGroupMembers", "PlaySound", "PlaySoundFile", "DEFAULT_CHAT_FRAME",
+    "SlashCmdList", "SLASH_GRUDGEFOREVER1", "SLASH_GRUDGEFOREVER2", "date",
+    "hooksecurefunc", "securecallfunction", "GetTime", "GetFramerate", "ChatThrottleLib", "C_UIFileAsset",
+    "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
+    "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants",
+    "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames",
   },
 }
