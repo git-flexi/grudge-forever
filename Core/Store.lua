@@ -139,7 +139,7 @@ function Store:AddOrUpdate(list, name, reason)
     own.entries[id] = e
   elseif e.deleted then
     -- reviving a tombstone starts a fresh entry of our own
-    e.created, e.origin = now, nil
+    e.created, e.origin, e.originGuild = now, nil, nil
   end
   e.reason, e.updated, e.rev, e.deleted = reason, now, own.rev, false
   e.char = self:GetCurrentChar()
@@ -310,7 +310,8 @@ function Store:Adopt(ownerId, id)
     if not e.deleted and not (mine and not mine.deleted) then
       own.entries[eid] = {
         key = e.key, name = e.name, list = e.list, reason = e.reason, char = self:GetCurrentChar(),
-        origin = e.origin or owner.lastChar, created = e.created or now, updated = now, rev = rev, deleted = false,
+        origin = e.origin or owner.lastChar, originGuild = self:GetCurrentGuild(),
+        created = e.created or now, updated = now, rev = rev, deleted = false,
       }
       count = count + 1
     end
@@ -355,9 +356,8 @@ function Store:DeltaFor(ownerId, sinceRev)
   local entries = {}
   for i, e in ipairs(list) do
     entries[i] = copyEntry(e, false)
-    -- an origin naming one of our own characters outside this guild would reveal a twink
-    local originKey = isOwn and Names.Normalize(e.origin)
-    if originKey and self.sv.myChars[originKey] and not chars[originKey] then entries[i].origin = nil end
+    -- an own origin names a creator of the guild it was adopted in; imported origins stay local
+    if isOwn and e.originGuild ~= self:GetCurrentGuild() then entries[i].origin = nil end
   end
 
   return { o = ownerId, rev = src.rev, base = sinceRev, chars = chars, lastChar = lastChar, e = entries }
@@ -381,6 +381,13 @@ function Store:ApplyDelta(delta)
     if isOwn then
       -- the local creator character survives; entries new to this device get the sender's character
       fresh.char = existing and existing.char or delta.lastChar
+      if fresh.origin then
+        -- the sender only shares origins of this guild
+        fresh.originGuild = self:GetCurrentGuild()
+      elseif existing and existing.origin and existing.created == fresh.created then
+        -- same entry, but its origin is not shared here: keep the local one
+        fresh.origin, fresh.originGuild = existing.origin, existing.originGuild
+      end
     end
     if existing then
       for k in pairs(existing) do existing[k] = nil end
@@ -412,19 +419,43 @@ end
 
 -- Maintenance -----------------------------------------------------------------
 
+local function anyInRoster(chars, rosterKeys)
+  for charKey in pairs(chars) do
+    if rosterKeys[charKey] then return true end
+  end
+  return false
+end
+
+-- Whether the owner was pruned from the current guild (it left); Sync neither requests nor applies it.
+function Store:IsPruned(ownerId)
+  local guild = self:GetCurrentGuild()
+  local g = guild and self.sv.guilds[guild]
+  return g ~= nil and g.pruned ~= nil and g.pruned[ownerId] ~= nil
+end
+
 function Store:PruneByRoster(rosterKeys, complete)
-  local removed, owners = {}, self:GetOwners()
-  for _, ownerId in ipairs(sortedKeys(owners)) do
-    local owner = owners[ownerId]
-    local present = false
-    for charKey in pairs(owner.chars) do
-      if rosterKeys[charKey] then present = true; break end
-    end
-    if present then
+  local removed = {}
+  local guild = self:GetCurrentGuild()
+  local g = guild and self.sv.guilds[guild]
+  if not g then return removed end
+  complete = complete == true
+  -- our own character in a complete roster proves the roster uses our name format
+  local verified = self.currentKey ~= nil and rosterKeys[self.currentKey] ~= nil
+  for _, ownerId in ipairs(sortedKeys(g.owners)) do
+    local owner = g.owners[ownerId]
+    if anyInRoster(owner.chars, rosterKeys) then
       owner.seenInRoster = true
-    elseif complete == true and owner.seenInRoster == true then
-      owners[ownerId] = nil
+    elseif complete and (verified or owner.seenInRoster == true) then
+      g.owners[ownerId] = nil
+      g.pruned = g.pruned or {}
+      g.pruned[ownerId] = { at = self.deps.now(), chars = copyMap(owner.chars) }
       removed[#removed + 1] = ownerId
+    end
+  end
+  if complete and g.pruned then
+    for ownerId, p in pairs(g.pruned) do
+      -- a returning member is welcome again
+      if anyInRoster(p.chars, rosterKeys) then g.pruned[ownerId] = nil end
     end
   end
   return removed
@@ -450,6 +481,9 @@ function Store:PruneTombstones()
   prune(self.sv.own.entries)
   for _, g in pairs(self.sv.guilds) do
     for _, owner in pairs(g.owners) do prune(owner.entries) end
+    for ownerId, p in pairs(g.pruned or {}) do
+      if p.at < cutoff then g.pruned[ownerId] = nil end
+    end
   end
 end
 

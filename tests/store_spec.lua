@@ -314,6 +314,90 @@ describe("Store", function()
     assert.same({}, store:Lookup("Thrall Earthson"))
   end)
 
+  it("prunes every absent owner once the own character proves the roster format", function()
+    giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) })
+    giveOwner("bbbbbbbbbbbbbbbb", 1, { entry("enemy", "Cairne Bloodhoof", 1) }, "Baine Bloodhoof",
+      { ["baine bloodhoof"] = "Baine Bloodhoof" })
+    local roster = { ["arthas menethil"] = true, ["baine bloodhoof"] = true }
+    assert.same({}, store:PruneByRoster(roster, false))
+    assert.is_false(store:IsPruned("aaaaaaaaaaaaaaaa"))
+    assert.same({ "aaaaaaaaaaaaaaaa" }, store:PruneByRoster(roster, true))
+    assert.is_true(store:IsPruned("aaaaaaaaaaaaaaaa"))
+    assert.is_false(store:IsPruned("bbbbbbbbbbbbbbbb"))
+    assert.same({}, store:Lookup("Thrall Earthson"))
+    assert.equals(1, #store:Lookup("Cairne Bloodhoof"))
+    -- pruned only for this guild
+    store:SetCurrentCharacter("Jaina Proudmoore", "Andere Gilde")
+    assert.is_false(store:IsPruned("aaaaaaaaaaaaaaaa"))
+  end)
+
+  it("welcomes a pruned owner back once one of its characters is in a complete roster", function()
+    giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) })
+    store:PruneByRoster({ ["arthas menethil"] = true }, true)
+    assert.is_true(store:IsPruned("aaaaaaaaaaaaaaaa"))
+    store:PruneByRoster({ ["arthas menethil"] = true, ["jaina proudmoore"] = true }, false)
+    assert.is_true(store:IsPruned("aaaaaaaaaaaaaaaa"))
+    store:PruneByRoster({ ["arthas menethil"] = true, ["jaina proudmoore"] = true }, true)
+    assert.is_false(store:IsPruned("aaaaaaaaaaaaaaaa"))
+  end)
+
+  it("forgets pruned owners after 90 days", function()
+    giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) })
+    store:PruneByRoster({ ["arthas menethil"] = true }, true)
+    clock = clock + 90 * DAY
+    store:PruneTombstones()
+    assert.is_true(store:IsPruned("aaaaaaaaaaaaaaaa"))
+    clock = clock + 1
+    store:PruneTombstones()
+    assert.is_false(store:IsPruned("aaaaaaaaaaaaaaaa"))
+  end)
+
+  it("shares an adopted origin only in the guild it was adopted in, never an imported one", function()
+    local id = store:GetPlayerId()
+    giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) }, "Jaina Proudmoore")
+    assert.equals(1, store:Adopt("aaaaaaaaaaaaaaaa"))
+    assert.equals("added", store:ImportEntry({
+      name = "Cairne Bloodhoof", list = "enemy", reason = "x", origin = "Sylvanas Windrunner",
+      created = clock, updated = clock,
+    }))
+    local function origins()
+      local out = {}
+      for _, e in ipairs(store:DeltaFor(id, 0).e) do out[e.key] = e.origin or false end
+      return out
+    end
+    assert.same({ ["thrall earthson"] = "Jaina Proudmoore", ["cairne bloodhoof"] = false }, origins())
+    store:SetCurrentCharacter("Muradin Bronzebeard", "Andere Gilde")
+    assert.same({ ["thrall earthson"] = false, ["cairne bloodhoof"] = false }, origins())
+    -- locally the origin stays
+    assert.equals("Jaina Proudmoore", sv.own.entries["enemy:thrall earthson"].origin)
+  end)
+
+  it("keeps the local origin of an own entry when a relayed own delta does not share it", function()
+    local id = store:GetPlayerId()
+    giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) }, "Jaina Proudmoore")
+    store:Adopt("aaaaaaaaaaaaaaaa")
+    local mine = sv.own.entries["enemy:thrall earthson"]
+    assert.equals("applied", store:ApplyDelta({
+      o = id, rev = 3, base = 1, chars = {},
+      e = {
+        entry("enemy", "Thrall Earthson", 2, { reason = "neu", created = mine.created }),
+        entry("enemy", "Cairne Bloodhoof", 3, { origin = "Baine Bloodhoof" }),
+      },
+    }))
+    assert.equals("neu", sv.own.entries["enemy:thrall earthson"].reason)
+    assert.equals("Jaina Proudmoore", sv.own.entries["enemy:thrall earthson"].origin)
+    assert.equals(GUILD, sv.own.entries["enemy:thrall earthson"].originGuild)
+    -- an origin that arrives in this guild may be shared in this guild
+    assert.equals(GUILD, sv.own.entries["enemy:cairne bloodhoof"].originGuild)
+    assert.equals("Baine Bloodhoof", store:DeltaFor(id, 2).e[1].origin)
+    -- a revived entry (new created) has no origin any more
+    assert.equals("applied", store:ApplyDelta({
+      o = id, rev = 4, base = 3, chars = {},
+      e = { entry("enemy", "Thrall Earthson", 4, { created = mine.created + 5 }) },
+    }))
+    assert.is_nil(sv.own.entries["enemy:thrall earthson"].origin)
+  end)
+
   it("drops guild caches without an own character", function()
     giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) })
     store:SetCurrentCharacter("Jaina Proudmoore", "Andere Gilde")

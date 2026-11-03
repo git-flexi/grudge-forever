@@ -6,10 +6,12 @@ local ADDON, ns = ...
 -- Messages (all carry v = Const.PROTO):
 --   H hello    { t="H", v, pid, char, chars = { display… }, d = { [owner] = rev }, full = bool }
 --   R request  { t="R", v, pid, want = { [owner] = haveRev } }
+--   A announce { t="A", v, from = pid, o, rev, base } sent right before a planned D
 --   D data     a Store delta plus { t="D", v, from = pid }
 --
--- Answers are delayed by a random 1-5 s and dropped when someone else sent the same data first,
--- so a large guild answers each question about once.
+-- Answers are delayed by a random 1-5 s and dropped when someone else announced or sent the same
+-- data first, so a large guild answers each question about once. The announce matters because a
+-- large D arrives in chunks over many seconds, long after the other answer timers ran out.
 local Names, Const, Store = ns.Names, ns.Const, ns.Store
 
 local Sync = {}
@@ -69,15 +71,16 @@ local function isCharMap(t)
   return true
 end
 
-local function isEntry(e, maxRev)
+-- base < e.rev <= maxRev
+local function isEntry(e, base, maxRev)
   return type(e) == "table" and isName(e.name) and e.key == Names.Normalize(e.name)
     and Store.IsList(e.list) and Store.IsValidReason(e.reason) and isOptional(e.origin, isName)
-    and isCount(e.created) and isCount(e.updated) and isCount(e.rev) and e.rev <= maxRev
+    and isCount(e.created) and isCount(e.updated) and isCount(e.rev) and e.rev > base and e.rev <= maxRev
     and isBool(e.deleted)
 end
 
 -- A dense array (keys exactly 1..n) of at most MAX_ENTRIES_PER_OWNER valid entries.
-local function isEntryList(list, maxRev)
+local function isEntryList(list, base, maxRev)
   if type(list) ~= "table" then return false end
   local n = 0
   for _ in pairs(list) do
@@ -85,7 +88,7 @@ local function isEntryList(list, maxRev)
     if n > Const.MAX_ENTRIES_PER_OWNER then return false end
   end
   for i = 1, n do
-    if not isEntry(list[i], maxRev) then return false end
+    if not isEntry(list[i], base, maxRev) then return false end
   end
   return true
 end
@@ -97,9 +100,12 @@ local validators = {
   R = function(m)
     return isId(m.pid) and isRevMap(m.want)
   end,
+  A = function(m)
+    return isId(m.from) and isId(m.o) and isCount(m.rev) and isCount(m.base) and m.base <= m.rev
+  end,
   D = function(m)
     return isId(m.from) and isId(m.o) and isCount(m.rev) and isCount(m.base) and m.base <= m.rev
-      and isOptional(m.chars, isCharMap) and isOptional(m.lastChar, isName) and isEntryList(m.e, m.rev)
+      and isOptional(m.chars, isCharMap) and isOptional(m.lastChar, isName) and isEntryList(m.e, m.base, m.rev)
   end,
 }
 
@@ -164,11 +170,17 @@ function Sync:dropCoveredData(ownerId, rev, base)
   end
 end
 
-function Sync:sendDelta(delta)
+-- announce: tell the guild first (small, fast) so other planned answers stop before the D arrives
+function Sync:sendDelta(delta, announce)
   -- receivers drop oversized deltas whole, so sending one would only flood the channel
   if delta.rev <= delta.base or #delta.e > Const.MAX_ENTRIES_PER_OWNER then return end
-  delta.t, delta.v, delta.from = "D", Const.PROTO, self.store:GetPlayerId()
+  local pid = self.store:GetPlayerId()
   self:dropCoveredData(delta.o, delta.rev, delta.base)
+  if announce then
+    self.deps.send({ t = "A", v = Const.PROTO, from = pid, o = delta.o, rev = delta.rev, base = delta.base },
+      PRIO_CONTROL)
+  end
+  delta.t, delta.v, delta.from = "D", Const.PROTO, pid
   self.deps.send(delta, PRIO_DATA)
 end
 
@@ -185,7 +197,7 @@ function Sync:planData(ownerId, base)
     self.pendingData[ownerId] = nil
     if not self:isActive() or not self:hasGuild() then return end
     local delta = self.store:DeltaFor(ownerId, p.base)
-    if delta then self:sendDelta(delta) end
+    if delta then self:sendDelta(delta, true) end
   end)
 end
 
@@ -203,9 +215,10 @@ function Sync:planRequest(ownerId, want)
   end)
 end
 
-function Sync:dropCoveredRequest(ownerId, rev)
+-- covered: whether the incoming data or request takes care of our pending want
+function Sync:dropRequest(ownerId, covered)
   local want = self.pendingWant[ownerId]
-  if want == nil or rev <= want then return end
+  if want == nil or not covered(want) then return end
   self.pendingWant[ownerId] = nil
   if next(self.pendingWant) == nil and self.requestTimer then
     self.requestTimer:Cancel()
@@ -229,11 +242,15 @@ function Sync:onHello(msg, sender)
   end
   for ownerId, their in pairs(theirs) do
     local rev = mine[ownerId] or 0
-    if their > rev then self:planRequest(ownerId, rev) end
+    if their > rev and not self.store:IsPruned(ownerId) then self:planRequest(ownerId, rev) end
   end
 end
 
 function Sync:onRequest(msg, sender)
+  -- someone else asking for at least as much gets an answer we can use too
+  for ownerId, want in pairs(msg.want) do
+    self:dropRequest(ownerId, function(mine) return want <= mine end)
+  end
   if not self:isActive() then return end
   local now = self.deps.now()
   for ownerId, want in pairs(msg.want) do
@@ -246,17 +263,28 @@ function Sync:onRequest(msg, sender)
   end
 end
 
+-- Suppression shared by announces and data. Returns false for owners that left the guild.
+function Sync:noteData(msg)
+  if self.store:IsPruned(msg.o) then return false end
+  self:dropCoveredData(msg.o, msg.rev, msg.base)
+  self:dropRequest(msg.o, function(want) return msg.rev > want end)
+  return true
+end
+
+function Sync:onAnnounce(msg)
+  self:noteData(msg)
+end
+
 function Sync:onData(msg)
   local ownerId = msg.o
-  self:dropCoveredData(ownerId, msg.rev, msg.base)
-  self:dropCoveredRequest(ownerId, msg.rev)
+  if not self:noteData(msg) then return end
   if self.store:ApplyDelta(msg) == "need_full" and self:isActive() then
     self:planRequest(ownerId, 0)
   end
   if ownerId ~= self.store:GetPlayerId() then self.store:TryClaimIdentity(ownerId) end
 end
 
-local handlers = { H = Sync.onHello, R = Sync.onRequest, D = Sync.onData }
+local handlers = { H = Sync.onHello, R = Sync.onRequest, A = Sync.onAnnounce, D = Sync.onData }
 
 -- Public API ----------------------------------------------------------------------
 
@@ -268,11 +296,21 @@ function Sync:OnMessage(msg, senderName)
   handlers[msg.t](self, msg, sender)
 end
 
--- Once per session, when the guild roster is complete for the first time.
+-- When the guild roster is complete for the first time (again after OnGuildChanged).
 function Sync:OnRosterReady()
-  if self.helloSent then return end
+  if self.helloSent or self.deps.mode() ~= "auto" or not self:hasGuild() then return end
   self.helloSent = true
-  if self.deps.mode() == "auto" and self:hasGuild() then self:sendHello(false) end
+  self:sendHello(false)
+end
+
+-- The current character joined, left or switched guilds: forget everything planned for the old one,
+-- so the next OnRosterReady says hello to the new guild.
+function Sync:OnGuildChanged()
+  for _, p in pairs(self.pendingData) do p.handle:Cancel() end
+  if self.requestTimer then self.requestTimer:Cancel() end
+  self.pendingData, self.pendingWant, self.requestTimer = {}, {}, nil
+  self.helloSeen, self.requestSeen = {}, {}
+  self.helloSent = false
 end
 
 -- Returns true, or false plus the remaining cooldown in seconds (0 when sync is off).

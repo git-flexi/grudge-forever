@@ -6,7 +6,7 @@ local wow = require("tests.helpers.wow")
 describe("Sync", function()
   local GUILD = "Die Gilde"
   local COOLDOWN = 300
-  local ns, clock, timers, timerSeq, log, clients
+  local ns, clock, timers, timerSeq, log, clients, bulkDelay
 
   local function copy(v)
     if type(v) ~= "table" then return v end
@@ -51,11 +51,16 @@ describe("Sync", function()
     error("timers never settle")
   end
 
+  -- BULK messages may arrive late (bulkDelay seconds), like chunked AceComm data.
   local function broadcast(from, msg, prio)
-    log[#log + 1] = { from = from, msg = copy(msg), prio = prio }
-    for _, c in ipairs(clients) do
-      if c ~= from and c.online then c.sync:OnMessage(copy(msg), from.wireName) end
+    msg = copy(msg)
+    log[#log + 1] = { from = from, msg = msg, prio = prio }
+    local function deliver()
+      for _, c in ipairs(clients) do
+        if c ~= from and c.online then c.sync:OnMessage(copy(msg), from.wireName) end
+      end
     end
+    if prio == "BULK" and bulkDelay > 0 then after(bulkDelay, deliver) else deliver() end
   end
 
   -- opts: mode ("auto"), guild (GUILD; false = none), sv (fresh), wireName (char name)
@@ -126,7 +131,7 @@ describe("Sync", function()
     wow.load(ns, "Core/Names.lua", "Core/Store.lua", "Core/Sync.lua")
     math.randomseed(4711)
     clock = 1700000000
-    timers, timerSeq, log, clients = {}, 0, {}, {}
+    timers, timerSeq, log, clients, bulkDelay = {}, 0, {}, {}, 0
   end)
 
   it("brings a new member up to date after its hello", function()
@@ -149,6 +154,11 @@ describe("Sync", function()
     assert.equals(1, #d)
     assert.equals("BULK", d[1].prio)
     assert.equals(a.pid(), d[1].msg.from)
+    -- a planned answer is announced first
+    local ann = sent({ from = a, t = "A" }, mark)
+    assert.equals(1, #ann)
+    assert.equals("NORMAL", ann[1].prio)
+    assert.same({ t = "A", v = 1, from = a.pid(), o = a.pid(), rev = 2, base = 0 }, ann[1].msg)
     local m = b.store:Lookup("Thrall Earthson", "enemy")
     assert.equals(1, #m)
     assert.equals(a.pid(), m[1].ownerId)
@@ -167,6 +177,10 @@ describe("Sync", function()
     o.sync:OnRosterReady()
     assert.equals(1, #sent({ t = "H" }))
     assert.equals(a, sent({ t = "H" })[1].from)
+    -- not having said hello yet, a client switched to auto still does
+    m.mode = "auto"
+    m.sync:OnRosterReady()
+    assert.equals(2, #sent({ t = "H" }))
   end)
 
   it("sends only the changed entry as a live delta", function()
@@ -185,6 +199,8 @@ describe("Sync", function()
     assert.equals(3, d[1].msg.rev)
     assert.equals("doch nett", b.store:Lookup("Thrall Earthson")[1].entry.reason)
     assert.equals(0, pendingTimers())
+    -- live changes go out at once, without an announce
+    assert.equals(0, #sent({ t = "A" }))
   end)
 
   it("spreads deletions", function()
@@ -232,6 +248,140 @@ describe("Sync", function()
     assert.equals(1, #b.store:Lookup("Thrall Earthson"))
     assert.equals(1, #a.store:Lookup("Thrall Earthson"))
     assert.equals(1, #c.store:Lookup("Thrall Earthson"))
+  end)
+
+  it("answers once even when the data itself arrives much later than the answer timers", function()
+    bulkDelay = 30
+    local x = newClient("Varian Wrynn")
+    local a = newClient("Jaina Proudmoore")
+    local c = newClient("Anduin Wrynn")
+    local d = newClient("Muradin Bronzebeard")
+    add(x, "enemy", "Thrall Earthson", "pöbelt")
+    runTimers()
+    x.online = false
+
+    local b = newClient("Arthas Menethil")
+    local mark = #log + 1
+    b.sync:OnRosterReady()
+    runTimers()
+    assert.equals(1, #sent({ t = "A", o = x.pid() }, mark))
+    assert.equals(1, #sent({ t = "D", o = x.pid() }, mark))
+    assert.equals(1, #b.store:Lookup("Thrall Earthson"))
+    assert.equals(1, #d.store:Lookup("Thrall Earthson"))
+    assert.equals(1, #a.store:Lookup("Thrall Earthson"))
+    assert.equals(1, #c.store:Lookup("Thrall Earthson"))
+  end)
+
+  it("drops a planned request when someone else asks for at least as much", function()
+    local x = newClient("Varian Wrynn")
+    local a = newClient("Jaina Proudmoore")
+    add(x, "enemy", "Thrall Earthson", "eins")
+    x.online = false
+    local b = newClient("Arthas Menethil")
+    local c = newClient("Anduin Wrynn")
+    a.sync:OnMessage(hello(b, { [x.pid()] = 2 }), "Arthas Menethil")
+    assert.truthy(pendingTimers() > 0)
+    -- asking from a newer state does not cover us
+    a.sync:OnMessage(request(c, { [x.pid()] = 2 }), "Anduin Wrynn")
+    a.sync:OnMessage(request(c, { [x.pid()] = 0 }), "Anduin Wrynn")
+    runTimers()
+    assert.equals(0, #sent({ from = a, t = "R" }))
+  end)
+
+  it("still requests when the overheard request asks for less", function()
+    local x = newClient("Varian Wrynn")
+    local a = newClient("Jaina Proudmoore")
+    add(x, "enemy", "Thrall Earthson", "eins")
+    x.online = false
+    local b = newClient("Arthas Menethil")
+    local c = newClient("Anduin Wrynn")
+    a.sync:OnMessage(hello(b, { [x.pid()] = 2 }), "Arthas Menethil")
+    a.sync:OnMessage(request(c, { [x.pid()] = 2 }), "Anduin Wrynn")
+    runTimers()
+    local r = sent({ from = a, t = "R" })
+    assert.equals(1, #r)
+    assert.same({ [x.pid()] = 1 }, r[1].msg.want)
+  end)
+
+  it("drops a planned request or answer when an announce covers it", function()
+    local x = newClient("Varian Wrynn")
+    local a = newClient("Jaina Proudmoore")
+    add(x, "enemy", "Thrall Earthson", "eins")
+    x.online = false
+    local b = newClient("Arthas Menethil")
+    local announce = { t = "A", v = 1, from = b.pid(), o = x.pid(), rev = 2, base = 0 }
+
+    a.sync:OnMessage(hello(b, { [x.pid()] = 2 }), "Arthas Menethil")
+    assert.truthy(pendingTimers() > 0)
+    a.sync:OnMessage(copy(announce), "Arthas Menethil")
+    assert.equals(0, pendingTimers())
+
+    -- a planned answer stops too
+    local c = newClient("Anduin Wrynn")
+    a.sync:OnMessage(request(c, { [x.pid()] = 0 }), "Anduin Wrynn")
+    assert.truthy(pendingTimers() > 0)
+    -- malformed announces that would otherwise cover it are dropped
+    for _, field in ipairs({ { "rev", math.huge }, { "base", -1 }, { "v", 2 }, { "from", false } }) do
+      local bad = copy(announce)
+      bad[field[1]] = field[2]
+      a.sync:OnMessage(bad, "Arthas Menethil")
+      assert.truthy(pendingTimers() > 0)
+    end
+    a.sync:OnMessage(copy(announce), "Arthas Menethil")
+    assert.equals(0, pendingTimers())
+    assert.equals(1, a.store:GetRev(x.pid()))
+  end)
+
+  it("keeps a departed owner gone although others still advertise it", function()
+    local x = newClient("Varian Wrynn")
+    local a = newClient("Jaina Proudmoore")
+    local c = newClient("Anduin Wrynn")
+    add(x, "enemy", "Thrall Earthson", "pöbelt")
+    x.online = false
+
+    -- x left the guild; only a has seen the complete roster since
+    local roster = { ["jaina proudmoore"] = true, ["anduin wrynn"] = true }
+    assert.same({ x.pid() }, a.sync:OnRoster(roster, true))
+    assert.equals(1, #c.store:Lookup("Thrall Earthson"))
+
+    c.sync:OnRosterReady()
+    runTimers()
+    assert.same({}, a.store:Lookup("Thrall Earthson"))
+    assert.equals(0, #sent({ from = a, t = "R" }))
+    local d = c.store:DeltaFor(x.pid(), 0)
+    d.t, d.v, d.from = "D", 1, c.pid()
+    a.sync:OnMessage(d, "Anduin Wrynn")
+    assert.same({}, a.store:Lookup("Thrall Earthson"))
+
+    -- x rejoins: the next sync brings the data back
+    roster["varian wrynn"] = true
+    a.sync:OnRoster(roster, true)
+    clock = clock + COOLDOWN + 1
+    assert.is_true((c.sync:ManualSync()))
+    runTimers()
+    assert.equals(1, #a.store:Lookup("Thrall Earthson"))
+  end)
+
+  it("sends nothing for a guild change until the new guild's roster is ready", function()
+    local a = newClient("Jaina Proudmoore", { guild = false })
+    add(a, "enemy", "Thrall Earthson", "pöbelt")
+    a.sync:OnRosterReady()
+    assert.equals(0, #sent({ from = a }))
+
+    a.store:SetCurrentCharacter("Jaina Proudmoore", GUILD)
+    a.sync:OnGuildChanged()
+    a.sync:OnRosterReady()
+    assert.equals(1, #sent({ from = a, t = "H" }))
+
+    -- pending work for the old guild is dropped
+    local b = newClient("Arthas Menethil")
+    a.sync:OnMessage(hello(b, {}), "Arthas Menethil")
+    assert.truthy(pendingTimers() > 0)
+    a.store:SetCurrentCharacter("Jaina Proudmoore", "Andere Gilde")
+    a.sync:OnGuildChanged()
+    assert.equals(0, pendingTimers())
+    a.sync:OnRosterReady()
+    assert.equals(2, #sent({ from = a, t = "H" }))
   end)
 
   it("sends newer data once even if several members request it", function()
@@ -464,6 +614,7 @@ describe("Sync", function()
       function(m) m.e[1].created = -5 end,
       function(m) m.e[1].rev = m.rev + 1 end,
       function(m) m.e[1].rev = -math.huge end,
+      function(m) m.e[1].rev = m.base end,
       function(m) m.e[1].deleted = "no" end,
       function(m) m.e[1].origin = 42 end,
       function(m) m.e[1] = "eintrag" end,
