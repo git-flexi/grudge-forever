@@ -31,7 +31,10 @@ local BASE_FILES = {
   "Core/Const.lua",
 }
 
-local SECRET = {}
+-- Secret values are unique strings recorded in a registry: they look like
+-- ordinary strings, so only the issecretvalue stub can tell them apart.
+local secrets = {}
+local secretCount = 0
 
 local function runFile(path, ...)
   local chunk, err = loadfile(path)
@@ -39,13 +42,16 @@ local function runFile(path, ...)
   return chunk(...)
 end
 
--- Creates a value that the issecretvalue stub reports as secret.
+-- Creates a string value that the issecretvalue stub reports as secret.
 function wow.secret(value)
-  return setmetatable({ value = value }, SECRET)
+  secretCount = secretCount + 1
+  local str = "<secret#" .. secretCount .. ":" .. tostring(value) .. ">"
+  secrets[str] = true
+  return str
 end
 
 local function isSecret(v)
-  return getmetatable(v) == SECRET
+  return type(v) == "string" and secrets[v] == true
 end
 
 function wow.reset()
@@ -55,13 +61,16 @@ function wow.reset()
   wow.locale = "enUS"
   wow.now = 1700000000      -- value returned by GetServerTime
   wow.inGuild = false
-  -- unit token -> { name=, surname=, player=true, faction="Alliance", secret=false }
+  -- unit token -> { name=, surname=, player=true, faction="Alliance",
+  --                 secret=false (both secret), secretName=false, secretSurname=false }
   wow.units = {}
   wow.timers = {}           -- pending C_Timer.After calls: { delay=, fn= }
   wow.prefixes = {}         -- registered addon message prefixes
   wow.sent = {}             -- C_ChatInfo.SendAddonMessage calls: { prefix=, text=, channel=, target= }
 
   -- Stubs ----------------------------------------------------------------
+  secrets = {}
+  secretCount = 0
   _G.issecretvalue = isSecret
 
   _G.UnitExists = function(unit) return wow.units[unit] ~= nil end
@@ -72,10 +81,10 @@ function wow.reset()
   _G.UnitName = function(unit)
     local u = wow.units[unit]
     if not u then return nil, nil end
-    if u.secret then
-      return wow.secret(u.name), u.surname and wow.secret(u.surname) or nil
-    end
-    return u.name, u.surname
+    local name, surname = u.name, u.surname
+    if u.secret or u.secretName then name = wow.secret(name) end
+    if surname ~= nil and (u.secret or u.secretSurname) then surname = wow.secret(surname) end
+    return name, surname
   end
   _G.UnitFactionGroup = function(unit)
     local u = wow.units[unit]

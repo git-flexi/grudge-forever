@@ -27,6 +27,8 @@ function Names.Join(name, surname)
   if not name then return nil end
   name = Trim(name)
   if name == "" then return nil end
+  -- A secret surname makes the full name unknowable: never fall back to the first name alone.
+  if surname ~= nil and IsSecret(surname) then return nil end
   surname = Plain(surname)
   surname = surname and Trim(surname) or ""
   if surname == "" then return name end
