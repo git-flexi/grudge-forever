@@ -54,6 +54,15 @@ local function sortMatches(matches)
   return matches
 end
 
+-- Shared validators: Sync checks untrusted messages with the same rules.
+function Store.IsList(list)
+  return isList(list)
+end
+
+function Store.IsValidReason(reason)
+  return type(reason) == "string" and not Names.IsSecret(reason) and charLength(reason) <= Const.REASON_MAX
+end
+
 function Store.New(sv, deps)
   local self = setmetatable({ sv = sv, deps = deps }, Store)
 
@@ -163,9 +172,7 @@ function Store:ImportEntry(e)
   if not isList(e.list) then return nil, "invalid_list" end
   local key = Names.Normalize(e.name)
   if not key then return nil, "invalid_name" end
-  if type(e.reason) ~= "string" or Names.IsSecret(e.reason) or charLength(e.reason) > Const.REASON_MAX then
-    return nil, "invalid_reason"
-  end
+  if not Store.IsValidReason(e.reason) then return nil, "invalid_reason" end
   if type(e.created) ~= "number" or type(e.updated) ~= "number" then return nil, "invalid_time" end
 
   -- a creator that is one of our own characters is no origin
@@ -328,7 +335,8 @@ end
 
 function Store:DeltaFor(ownerId, sinceRev)
   local src, chars, lastChar
-  if ownerId == self.sv.playerId then
+  local isOwn = ownerId == self.sv.playerId
+  if isOwn then
     src, chars, lastChar = self.sv.own, self:GetMyGuildChars(), self:GetCurrentChar()
   else
     src = self:GetOwners()[ownerId]
@@ -345,7 +353,12 @@ function Store:DeltaFor(ownerId, sinceRev)
     return entryId(a.list, a.key) < entryId(b.list, b.key)
   end)
   local entries = {}
-  for i, e in ipairs(list) do entries[i] = copyEntry(e, false) end
+  for i, e in ipairs(list) do
+    entries[i] = copyEntry(e, false)
+    -- an origin naming one of our own characters outside this guild would reveal a twink
+    local originKey = isOwn and Names.Normalize(e.origin)
+    if originKey and self.sv.myChars[originKey] and not chars[originKey] then entries[i].origin = nil end
+  end
 
   return { o = ownerId, rev = src.rev, base = sinceRev, chars = chars, lastChar = lastChar, e = entries }
 end
