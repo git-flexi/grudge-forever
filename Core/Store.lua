@@ -149,6 +149,42 @@ function Store:Delete(list, name)
   return true
 end
 
+-- The own entry for a list/name, tombstones included.
+function Store:GetOwnEntry(list, name)
+  local key = Names.Normalize(name)
+  if not key or not isList(list) then return nil end
+  return self.sv.own.entries[entryId(list, key)]
+end
+
+-- Writes an entry from an import row ({ name, list, reason, origin, created, updated }).
+-- It becomes an own entry of the current character; created/updated are kept.
+-- Returns "added" / "updated", or nil plus an error key for invalid rows.
+function Store:ImportEntry(e)
+  if not isList(e.list) then return nil, "invalid_list" end
+  local key = Names.Normalize(e.name)
+  if not key then return nil, "invalid_name" end
+  if type(e.reason) ~= "string" or Names.IsSecret(e.reason) or charLength(e.reason) > Const.REASON_MAX then
+    return nil, "invalid_reason"
+  end
+  if type(e.created) ~= "number" or type(e.updated) ~= "number" then return nil, "invalid_time" end
+
+  -- a creator that is one of our own characters is no origin
+  local origin = Names.Display(e.origin)
+  if origin and self.sv.myChars[Names.Normalize(origin)] then origin = nil end
+
+  local own = self.sv.own
+  local id = entryId(e.list, key)
+  local existing = own.entries[id]
+  local result = (existing and not existing.deleted) and "updated" or "added"
+
+  own.rev = own.rev + 1
+  own.entries[id] = {
+    key = key, name = Names.Display(e.name), list = e.list, reason = e.reason, char = self:GetCurrentChar(),
+    origin = origin, created = e.created, updated = e.updated, rev = own.rev, deleted = false,
+  }
+  return result
+end
+
 function Store:GetOwnEntries()
   local out = {}
   for _, e in pairs(self.sv.own.entries) do

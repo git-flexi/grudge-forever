@@ -13,3 +13,5 @@ Locales\deDE.lua
 Core\Const.lua
 Core\Names.lua
 Core\Store.lua
+Core\Codec.lua
+Core\ExportImport.lua
