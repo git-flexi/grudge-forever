@@ -61,6 +61,7 @@ function wow.reset()
   wow.locale = "enUS"
   wow.now = 1700000000      -- value returned by GetServerTime
   wow.inGuild = false
+  wow.lockdown = false      -- value returned by C_ChatInfo.InChatMessagingLockdown
   -- unit token -> { name=, surname=, player=true, faction="Alliance",
   --                 secret=false (both secret), secretName=false, secretSurname=false }
   wow.units = {}
@@ -100,6 +101,7 @@ function wow.reset()
     After = function(delay, fn) table.insert(wow.timers, { delay = delay, fn = fn }) end,
   }
   _G.C_ChatInfo = {
+    InChatMessagingLockdown = function() return wow.lockdown end,
     RegisterAddonMessagePrefix = function(prefix)
       table.insert(wow.prefixes, prefix)
       return true
