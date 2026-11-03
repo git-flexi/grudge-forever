@@ -10,4 +10,4 @@ lint:
 	$(LUACHECK) .
 
 package:
-	@echo "package: implemented in Task 11" && exit 1
+	./scripts/package.sh
