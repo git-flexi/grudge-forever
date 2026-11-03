@@ -6,7 +6,7 @@ local wow = require("tests.helpers.wow")
 describe("Sync", function()
   local GUILD = "Die Gilde"
   local COOLDOWN = 300
-  local ns, clock, timers, timerSeq, log, clients, bulkDelay
+  local ns, clock, timers, timerSeq, log, clients, bulkDelay, normalDelay
 
   local function copy(v)
     if type(v) ~= "table" then return v end
@@ -51,7 +51,8 @@ describe("Sync", function()
     error("timers never settle")
   end
 
-  -- BULK messages may arrive late (bulkDelay seconds), like chunked AceComm data.
+  -- Delivery latency: NORMAL messages arrive after normalDelay seconds, BULK ones after bulkDelay
+  -- (chunked AceComm data); 0 delivers at once.
   local function broadcast(from, msg, prio)
     msg = copy(msg)
     log[#log + 1] = { from = from, msg = msg, prio = prio }
@@ -60,10 +61,12 @@ describe("Sync", function()
         if c ~= from and c.online then c.sync:OnMessage(copy(msg), from.wireName) end
       end
     end
-    if prio == "BULK" and bulkDelay > 0 then after(bulkDelay, deliver) else deliver() end
+    local delay = prio == "BULK" and bulkDelay or normalDelay
+    if delay > 0 then after(delay, deliver) else deliver() end
   end
 
-  -- opts: mode ("auto"), guild (GUILD; false = none), sv (fresh), wireName (char name)
+  -- opts: mode ("auto"), guild (GUILD; false = none), sv (fresh), wireName (char name),
+  --       random (math.random: the source of answer delays)
   local function newClient(name, opts)
     opts = opts or {}
     local c = { name = name, wireName = opts.wireName or name, mode = opts.mode or "auto", online = true }
@@ -80,7 +83,7 @@ describe("Sync", function()
       send = function(msg, prio) broadcast(c, msg, prio) end,
       now = function() return clock end,
       after = after,
-      random = function(lo, hi) return math.random(lo, hi) end,
+      random = opts.random or function() return math.random() end,
       mode = function() return c.mode end,
       sv = c.sv,
     })
@@ -131,7 +134,7 @@ describe("Sync", function()
     wow.load(ns, "Core/Names.lua", "Core/Store.lua", "Core/Sync.lua")
     math.randomseed(4711)
     clock = 1700000000
-    timers, timerSeq, log, clients, bulkDelay = {}, 0, {}, {}, 0
+    timers, timerSeq, log, clients, bulkDelay, normalDelay = {}, 0, {}, {}, 0, 0
   end)
 
   it("brings a new member up to date after its hello", function()
@@ -270,6 +273,165 @@ describe("Sync", function()
     assert.equals(1, #d.store:Lookup("Thrall Earthson"))
     assert.equals(1, #a.store:Lookup("Thrall Earthson"))
     assert.equals(1, #c.store:Lookup("Thrall Earthson"))
+  end)
+
+  -- A large guild with realistic latency: every question is answered about once.
+  local GUILD_SIZE = 24
+  local FIRST_NAMES = { "Anduin", "Baine", "Cairne", "Drek", "Eitrigg", "Falstad", "Genn", "Hamuul" }
+  local SURNAMES = { "Ashbringer", "Bloodhoof", "Crowley" }
+
+  local function bigGuild()
+    local members = {}
+    for i = 1, GUILD_SIZE do
+      local name = FIRST_NAMES[(i - 1) % #FIRST_NAMES + 1] .. " " .. SURNAMES[math.floor((i - 1) / #FIRST_NAMES) + 1]
+      members[i] = newClient(name)
+    end
+    for i, c in ipairs(members) do add(c, "enemy", "Target Nummer" .. i, "grund " .. i) end
+    -- two members whose data everyone holds go offline
+    local gone = { members[1], members[2] }
+    for _, c in ipairs(gone) do c.online = false end
+    runTimers()
+    normalDelay, bulkDelay = 0.2, 20
+    return members, gone
+  end
+
+  local function maxPerOwner(t, mark, owners)
+    local most = 0
+    for _, c in ipairs(owners) do most = math.max(most, #sent({ t = t, o = c.pid() }, mark)) end
+    return most
+  end
+
+  it("answers a hello in a large guild with one delta per owner", function()
+    local members = bigGuild()
+    local newcomer = newClient("Neu Ankoemmling")
+    local mark = #log + 1
+    newcomer.sync:OnRosterReady()
+    runTimers()
+
+    assert.equals(1, maxPerOwner("D", mark, members))
+    for i = 1, GUILD_SIZE do
+      assert.equals(1, #newcomer.store:Lookup("Target Nummer" .. i), "owner " .. i)
+    end
+    -- online owners answer for their own data themselves
+    for i = 3, GUILD_SIZE do
+      local d = sent({ t = "D", o = members[i].pid() }, mark)
+      assert.equals(1, #d, "owner " .. i)
+      assert.equals(members[i], d[1].from)
+    end
+  end)
+
+  it("requests newer data in a large guild with few requests and one answer", function()
+    local members, gone = bigGuild()
+    local x = gone[1]
+    -- x changes its list on another computer; only the relay knows the new state
+    for _, c in ipairs(members) do c.online = false end
+    local relay = newClient("Relay Bote")
+    relay.online = false
+    x.online = true
+    normalDelay, bulkDelay = 0, 0
+    relay.online = true
+    add(x, "enemy", "Neues Ziel", "frisch")
+    runTimers() -- the relay missed x's first entry and fetches the full state
+    assert.equals(2, relay.store:GetRev(x.pid()))
+    x.online = false
+    for _, c in ipairs(members) do if c ~= x and c ~= gone[2] then c.online = true end end
+    normalDelay, bulkDelay = 0.2, 20
+
+    local mark = #log + 1
+    relay.sync:OnRosterReady()
+    runTimers()
+    -- requests are small and several of them still get one answer
+    assert.truthy(#sent({ t = "R" }, mark) <= 3)
+    assert.equals(1, #sent({ t = "D", o = x.pid() }, mark))
+    for i = 3, GUILD_SIZE do
+      assert.equals(1, #members[i].store:Lookup("Neues Ziel"), "member " .. i)
+    end
+  end)
+
+  it("lets only the lowest player id send the data when announces cross", function()
+    local same = function() return 0.5 end
+    local x = newClient("Varian Wrynn")
+    local a = newClient("Jaina Proudmoore", { random = same })
+    local c = newClient("Anduin Wrynn", { random = same })
+    add(x, "enemy", "Thrall Earthson", "pöbelt")
+    x.online = false
+    normalDelay, bulkDelay = 0.2, 20
+
+    local b = newClient("Arthas Menethil")
+    local mark = #log + 1
+    b.sync:OnRosterReady()
+    runTimers()
+    assert.equals(2, #sent({ t = "A", o = x.pid() }, mark))
+    local d = sent({ t = "D", o = x.pid() }, mark)
+    assert.equals(1, #d)
+    assert.equals(a.pid() < c.pid() and a or c, d[1].from)
+    assert.equals(1, #b.store:Lookup("Thrall Earthson"))
+  end)
+
+  it("keeps a member that is online only on a twink no data mentioned yet", function()
+    local x = newClient("Varian Wrynn")
+    local a = newClient("Jaina Proudmoore", { mode = "manual" })
+    add(x, "enemy", "Thrall Earthson", "pöbelt")
+    x.online = false
+    local roster = { ["jaina proudmoore"] = true, ["varian wrynn"] = true }
+    a.sync:OnRoster(roster, true)
+
+    -- the same player logs in on a twink and says hello; a manual client still learns the twink
+    local twink = newClient("Twink Char", { sv = x.sv })
+    twink.sync:OnRosterReady()
+    roster["varian wrynn"] = nil
+    roster["twink char"] = true
+    assert.same({}, a.sync:OnRoster(roster, true))
+    local m = a.store:Lookup("Thrall Earthson")
+    assert.equals(1, #m)
+    assert.equals("Twink Char", m[1].by)
+  end)
+
+  it("takes a pruned member back when it says hello and lets its data flow again", function()
+    local x = newClient("Varian Wrynn")
+    local a = newClient("Jaina Proudmoore")
+    add(x, "enemy", "Thrall Earthson", "pöbelt")
+    x.online = false
+    assert.same({ x.pid() }, a.sync:OnRoster({ ["jaina proudmoore"] = true }, true))
+    assert.is_true(a.store:IsPruned(x.pid()))
+
+    -- x is back (the roster has not shown it yet) and changes its list while a is away
+    a.online = false
+    x.online = true
+    add(x, "enemy", "Garrosh Hellscream", "ninjat")
+    a.online = true
+    local x2 = newClient("Varian Wrynn", { sv = x.sv })
+    x.online = false
+    x2.sync:OnRosterReady()
+    runTimers()
+    assert.is_false(a.store:IsPruned(x.pid()))
+    assert.equals(1, #a.store:Lookup("Thrall Earthson"))
+    assert.equals(1, #a.store:Lookup("Garrosh Hellscream"))
+  end)
+
+  it("answers a manual sync right after the automatic login hello of the same sender", function()
+    local a = newClient("Jaina Proudmoore")
+    add(a, "enemy", "Thrall Earthson", "pöbelt")
+    local b = newClient("Arthas Menethil", { mode = "manual" })
+    b.mode = "auto"
+    b.sync:OnRosterReady()
+    b.mode = "manual"
+    runTimers()
+    -- b was told nothing new; its manual sync a moment later is still answered
+    clock = clock + 10
+    local mark = #log + 1
+    local full = hello(b, { [b.pid()] = 0 })
+    full.full = true
+    a.sync:OnMessage(full, "Arthas Menethil")
+    runTimers()
+    assert.equals(1, #sent({ from = a, t = "D" }, mark))
+    -- a second manual sync within 300 s is not
+    clock = clock + 10
+    mark = #log + 1
+    a.sync:OnMessage(copy(full), "Arthas Menethil")
+    assert.equals(0, pendingTimers())
+    runTimers()
+    assert.equals(0, #sent({ from = a, t = "D" }, mark))
   end)
 
   it("drops a planned request when someone else asks for at least as much", function()

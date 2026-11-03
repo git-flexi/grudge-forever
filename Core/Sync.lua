@@ -6,27 +6,31 @@ local ADDON, ns = ...
 -- Messages (all carry v = Const.PROTO):
 --   H hello    { t="H", v, pid, char, chars = { display… }, d = { [owner] = rev }, full = bool }
 --   R request  { t="R", v, pid, want = { [owner] = haveRev } }
---   A announce { t="A", v, from = pid, o, rev, base } sent right before a planned D
+--   A announce { t="A", v, from = pid, o, rev, base } sent SETTLE seconds before a planned D
 --   D data     a Store delta plus { t="D", v, from = pid }
 --
--- Answers are delayed by a random 1-5 s and dropped when someone else announced or sent the same
--- data first, so a large guild answers each question about once. The announce matters because a
--- large D arrives in chunks over many seconds, long after the other answer timers ran out.
+-- Answers and requests are delayed by a random 1-8 s and dropped when someone else announced or sent
+-- the same data first, so a large guild answers each question about once. The delays are fractional
+-- and exponentially shaped: few clients pick an early time, so the first answer is rarely followed by
+-- another one before its announce arrives, however many members are online. The owner of the data
+-- answers first (within 1 s). The announce matters because a large D arrives in chunks over many
+-- seconds, long after the other answer timers ran out. When announces still cross on the wire, the
+-- D waits SETTLE seconds and only the lowest player id among equal announces sends it.
 local Names, Const, Store = ns.Names, ns.Const, ns.Store
 
 local Sync = {}
 Sync.__index = Sync
 
 local PRIO_CONTROL, PRIO_DATA = "NORMAL", "BULK"
-local DELAY_MIN, DELAY_MAX = 1, 5
+local DELAY_MIN, DELAY_MAX = 1, 8
+local OWN_DELAY_MIN, OWN_DELAY_MAX = 0.1, 0.6 -- the owner's announce reaches everyone before DELAY_MIN
+local MAX_ANSWERERS = 1000 -- online members the delay spread is tuned for
+local SETTLE = 1 -- seconds between a planned answer's announce and its data; longer than control latency
 local MAX_ID_LENGTH = 64
 
 -- Validation of untrusted messages --------------------------------------------
 
--- finite and not negative (rejects NaN and ±inf)
-local function isCount(v)
-  return type(v) == "number" and v == v and v >= 0 and v < math.huge
-end
+local isCount = Store.IsCount
 
 local function isId(v)
   return type(v) == "string" and #v > 0 and #v <= MAX_ID_LENGTH
@@ -117,13 +121,13 @@ end
 
 -- Construction ------------------------------------------------------------------
 
--- deps = { store, send(msg, prio), now(), after(seconds, fn) -> handle, random(min, max),
+-- deps = { store, send(msg, prio), now(), after(seconds, fn) -> handle, random() -> [0, 1),
 --          mode() -> "auto"|"manual"|"off", sv }
 function Sync.New(deps)
   return setmetatable({
     deps = deps,
     store = deps.store,
-    helloSeen = {},    -- sender key -> time of the last answered hello
+    helloSeen = {},    -- sender key (.. "\nfull" for manual syncs) -> time of the last answered hello
     requestSeen = {},  -- sender key .. "\n" .. owner -> time of the last answered request
     pendingData = {},  -- owner -> { base =, handle = }
     pendingWant = {},  -- owner -> rev to request from
@@ -145,8 +149,16 @@ function Sync:isActive()
   return mode == "manual" and since >= 0 and since < Const.SYNC_COOLDOWN
 end
 
-function Sync:delay()
-  return self.deps.random(DELAY_MIN, DELAY_MAX)
+-- ownerId: the owner whose data an answer carries; its owner answers sooner than everyone else.
+-- Others: P(delay <= DELAY_MIN + s * span) = MAX_ANSWERERS^(s - 1), a truncated exponential, so with
+-- n answerers the earliest one fires near s = 1 - log(n) / log(MAX_ANSWERERS), well ahead of the rest.
+function Sync:delay(ownerId)
+  local x = self.deps.random()
+  if ownerId ~= nil and ownerId == self.store:GetPlayerId() then
+    return OWN_DELAY_MIN + x * (OWN_DELAY_MAX - OWN_DELAY_MIN)
+  end
+  local share = math.max(0, 1 + math.log(x) / math.log(MAX_ANSWERERS))
+  return DELAY_MIN + share * (DELAY_MAX - DELAY_MIN)
 end
 
 -- Sending -------------------------------------------------------------------------
@@ -161,29 +173,38 @@ function Sync:sendHello(full)
   }, PRIO_CONTROL)
 end
 
--- Cancels a planned answer for the owner that the given delta makes redundant.
-function Sync:dropCoveredData(ownerId, rev, base)
+-- Cancels a planned answer for the owner that the given announce or delta makes redundant.
+-- rival: the sender's player id for an announce. An answer we announced already gives way only to a
+-- wider one, or to an equal announce from a lower player id (that client drops its own for ours).
+function Sync:dropCoveredData(ownerId, rev, base, rival)
   local p = self.pendingData[ownerId]
-  if p and rev >= self.store:GetRev(ownerId) and base <= p.base then
-    p.handle:Cancel()
-    self.pendingData[ownerId] = nil
+  if not p then return end
+  if p.rev then
+    if rev < p.rev or base > p.base then return end
+    local equal = rev == p.rev and base == p.base
+    if equal and rival and rival >= self.store:GetPlayerId() then return end
+  elseif rev < self.store:GetRev(ownerId) or base > p.base then
+    return
   end
+  p.handle:Cancel()
+  self.pendingData[ownerId] = nil
 end
 
--- announce: tell the guild first (small, fast) so other planned answers stop before the D arrives
-function Sync:sendDelta(delta, announce)
-  -- receivers drop oversized deltas whole, so sending one would only flood the channel
-  if delta.rev <= delta.base or #delta.e > Const.MAX_ENTRIES_PER_OWNER then return end
+-- receivers drop oversized deltas whole, so sending one would only flood the channel
+local function sendable(delta)
+  return delta ~= nil and delta.rev > delta.base and #delta.e <= Const.MAX_ENTRIES_PER_OWNER
+end
+
+function Sync:sendDelta(delta)
+  if not sendable(delta) then return end
   local pid = self.store:GetPlayerId()
   self:dropCoveredData(delta.o, delta.rev, delta.base)
-  if announce then
-    self.deps.send({ t = "A", v = Const.PROTO, from = pid, o = delta.o, rev = delta.rev, base = delta.base },
-      PRIO_CONTROL)
-  end
   delta.t, delta.v, delta.from = "D", Const.PROTO, pid
   self.deps.send(delta, PRIO_DATA)
 end
 
+-- An answer: after the delay, announce it (small, fast) so other planned answers stop before the D
+-- arrives; after SETTLE, send the D unless a rival announce or data took over meanwhile.
 function Sync:planData(ownerId, base)
   local p = self.pendingData[ownerId]
   if p then
@@ -192,12 +213,27 @@ function Sync:planData(ownerId, base)
   end
   p = { base = base }
   self.pendingData[ownerId] = p
-  p.handle = self.deps.after(self:delay(), function()
-    if self.pendingData[ownerId] ~= p then return end
+  local function usable()
+    if self.pendingData[ownerId] ~= p then return false end
+    if self:isActive() and self:hasGuild() then return true end
     self.pendingData[ownerId] = nil
-    if not self:isActive() or not self:hasGuild() then return end
+    return false
+  end
+  p.handle = self.deps.after(self:delay(ownerId), function()
+    if not usable() then return end
     local delta = self.store:DeltaFor(ownerId, p.base)
-    if delta then self:sendDelta(delta, true) end
+    if not sendable(delta) then
+      self.pendingData[ownerId] = nil
+      return
+    end
+    p.rev = delta.rev
+    self.deps.send({ t = "A", v = Const.PROTO, from = self.store:GetPlayerId(), o = ownerId, rev = delta.rev,
+      base = p.base }, PRIO_CONTROL)
+    p.handle = self.deps.after(SETTLE, function()
+      if not usable() then return end
+      self.pendingData[ownerId] = nil
+      self:sendDelta(self.store:DeltaFor(ownerId, p.base))
+    end)
   end)
 end
 
@@ -229,11 +265,15 @@ end
 -- Receiving -----------------------------------------------------------------------
 
 function Sync:onHello(msg, sender)
+  -- also while not answering: a hello proves the sender is in the guild (keeps or brings it back)
+  self.store:NoteMember(msg.pid, msg.chars, msg.char)
   if not self:isActive() then return end
   local now = self.deps.now()
-  local last = self.helloSeen[sender]
+  -- a manual sync is limited on its own, so it still works right after the automatic login hello
+  local key = msg.full and sender .. "\nfull" or sender
+  local last = self.helloSeen[key]
   if last and now - last < Const.SYNC_COOLDOWN then return end
-  self.helloSeen[sender] = now
+  self.helloSeen[key] = now
 
   local mine, theirs = self.store:Digest(), msg.d
   for ownerId, rev in pairs(mine) do
@@ -266,7 +306,7 @@ end
 -- Suppression shared by announces and data. Returns false for owners that left the guild.
 function Sync:noteData(msg)
   if self.store:IsPruned(msg.o) then return false end
-  self:dropCoveredData(msg.o, msg.rev, msg.base)
+  self:dropCoveredData(msg.o, msg.rev, msg.base, msg.t == "A" and msg.from or nil)
   self:dropRequest(msg.o, function(want) return msg.rev > want end)
   return true
 end
