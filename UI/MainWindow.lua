@@ -204,7 +204,7 @@ local function updateSyncButton()
     sync:SetEnabled(false)
   else
     sync:SetText(L["MW_SYNC"])
-    sync:SetEnabled(Core.store:GetCurrentGuild() ~= nil)
+    sync:SetEnabled(Core.HasSyncGuild())
   end
 end
 

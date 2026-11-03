@@ -215,7 +215,11 @@ local function build(settings, callbacks)
   label(content, L["OPT_SYNC_MODE"], LABEL_X, y - 3)
   dropdown(content, CONTROL_X, y, 200, {
     { L["OPT_SYNC_AUTO"], "auto" }, { L["OPT_SYNC_MANUAL"], "manual" }, { L["OPT_SYNC_OFF"], "off" },
-  }, function() return settings.syncMode end, function(v) settings.syncMode = v end, refreshers)
+  }, function() return settings.syncMode end, function(v)
+    if settings.syncMode == v then return end
+    settings.syncMode = v
+    if callbacks.syncModeChanged then callbacks.syncModeChanged(v) end
+  end, refreshers)
   y = y - ROW_HEIGHT
 
   local unlock = checkbox(content, L["OPT_BANNER_UNLOCK"], y, function() return false end, function(v)
@@ -249,7 +253,7 @@ local function build(settings, callbacks)
 end
 
 -- settingsTable is the live saved settings; controls write straight into it.
--- callbacks = { testAlert = fn(list), bannerLock = fn(bool), bannerReset = fn() }
+-- callbacks = { testAlert = fn(list), bannerLock = fn(bool), bannerReset = fn(), syncModeChanged = fn(mode) }
 function OptionsPanel.Register(settingsTable, callbacks)
   if not Settings or not Settings.RegisterCanvasLayoutCategory then return nil end
   if panelBuilt then return category end

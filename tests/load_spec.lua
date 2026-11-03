@@ -158,18 +158,43 @@ describe("Addon load", function()
 
   it("keeps the guild cache while the guild name is still loading at login", function()
     _G.GrudgeForeverDB = {
-      myChars = { ["jaina proudmoore"] = { name = "Jaina Proudmoore", guild = "Die Gilde", lastSeen = 1 } },
-      guilds = { ["Die Gilde"] = { owners = {} } },
+      myChars = { ["jaina proudmoore"] = { name = "Jaina Proudmoore", guild = "Die Gilde", lastSeen = 1 },
+                  ["alt twink"] = { name = "Alt Twink", guild = "Alte Gilde", lastSeen = 1 } },
+      guilds = { ["Die Gilde"] = { owners = {} }, ["Alte Gilde"] = { owners = {} } },
     }
     wow.inGuild = true
     login()
     assert.is_table(GrudgeForeverDB.guilds["Die Gilde"])
-    assert.is_nil(ns.Core.store:GetCurrentGuild())
+    -- the character and its last known guild are there right away, so lookups see that guild's data
+    assert.equals("Jaina Proudmoore", ns.Core.store:GetCurrentChar())
+    assert.equals("Die Gilde", ns.Core.store:GetCurrentGuild())
 
     wow.guildName = "Die Gilde"
     fire("GUILD_ROSTER_UPDATE")
     assert.equals("Die Gilde", ns.Core.store:GetCurrentGuild())
     assert.is_table(GrudgeForeverDB.guilds["Die Gilde"])
+    assert.is_table(GrudgeForeverDB.guilds["Alte Gilde"])
+  end)
+
+  it("sends nothing until the guild is resolved, then switches to the new guild", function()
+    _G.GrudgeForeverDB = {
+      myChars = { ["jaina proudmoore"] = { name = "Jaina Proudmoore", guild = "Die Gilde", lastSeen = 1 } },
+      guilds = { ["Die Gilde"] = { owners = {} } },
+    }
+    wow.inGuild = true
+    login()
+    local send = spy.on(ns.Core.transport, "Send")
+    ns.Core.Change(function(store) store:AddOrUpdate("enemy", "Thrall Earthson", "x") end)
+    SlashCmdList.GRUDGEFOREVER("sync")
+    assert.is_true(chatContains(ns.L["SYNC_NO_GUILD"]))
+    wow.runTimers()
+    assert.spy(send).was_not_called()
+
+    -- the character changed guilds while logged out
+    wow.guildName = "Neue Gilde"
+    fire("PLAYER_GUILD_UPDATE", "player")
+    assert.equals("Neue Gilde", ns.Core.store:GetCurrentGuild())
+    assert.is_nil(GrudgeForeverDB.guilds["Die Gilde"])
   end)
 
   it("drops the guild cache of a guild the character left", function()
@@ -183,19 +208,91 @@ describe("Addon load", function()
     assert.is_nil(GrudgeForeverDB.guilds["Die Gilde"])
   end)
 
-  it("says hello once the first complete roster arrives", function()
+  it("says hello once on the first roster update, complete or not", function()
     wow.inGuild = true
     wow.guildName = "Die Gilde"
     login()
     local sent = spy.on(ns.Core.transport, "Send")
     wow.roster = { "Jaina Proudmoore", wow.secret("Thrall Earthson") }
     fire("GUILD_ROSTER_UPDATE")
-    assert.spy(sent).was_not_called()
-    wow.roster = { "Jaina Proudmoore", "Thrall Earthson" }
-    fire("GUILD_ROSTER_UPDATE")
-    fire("GUILD_ROSTER_UPDATE")
     assert.spy(sent).was_called(1)
     assert.equals("H", sent.calls[1].vals[2].t)
+    wow.roster = { "Jaina Proudmoore", "Thrall Earthson" }
+    fire("GUILD_ROSTER_UPDATE")
+    wow.runTimers()
+    assert.spy(sent).was_called(1)
+  end)
+
+  it("says hello after a while when no roster update arrives", function()
+    wow.inGuild = true
+    wow.guildName = "Die Gilde"
+    login()
+    local sent = spy.on(ns.Core.transport, "Send")
+    assert.spy(sent).was_not_called()
+    wow.runTimers()
+    assert.spy(sent).was_called(1)
+    assert.equals("H", sent.calls[1].vals[2].t)
+  end)
+
+  it("says no hello while the guild name is unknown", function()
+    wow.inGuild = true
+    login()
+    local sent = spy.on(ns.Core.transport, "Send")
+    wow.roster = { "Jaina Proudmoore" }
+    fire("GUILD_ROSTER_UPDATE")
+    wow.runTimers()
+    assert.spy(sent).was_not_called()
+    wow.guildName = "Die Gilde"
+    fire("GUILD_ROSTER_UPDATE")
+    assert.spy(sent).was_called(1)
+  end)
+
+  it("says hello when the sync mode is switched to automatic in the options", function()
+    local radios = {}
+    _G.Settings = {
+      RegisterCanvasLayoutCategory = function() return wow.proxy() end,
+      RegisterAddOnCategory = function() end,
+    }
+    local createFrame = CreateFrame
+    _G.CreateFrame = function(kind, ...)
+      local frame = createFrame(kind, ...)
+      if kind == "DropdownButton" then
+        rawset(frame, "SetupMenu", function(_, build)
+          build(nil, { CreateRadio = function(_, _, _, select, value)
+            radios[#radios + 1] = { value = value, select = select }
+          end })
+        end)
+      end
+      return frame
+    end
+    wow.inGuild = true
+    wow.guildName = "Die Gilde"
+    _G.GrudgeForeverDB = { settings = { syncMode = "manual" } }
+    login()
+    fire("GUILD_ROSTER_UPDATE")
+    local sent = spy.on(ns.Core.transport, "Send")
+    for _, radio in ipairs(radios) do
+      if radio.value == "auto" then radio.select("auto") end
+    end
+    assert.equals("auto", GrudgeForeverDB.settings.syncMode)
+    assert.spy(sent).was_called(1)
+    assert.equals("H", sent.calls[1].vals[2].t)
+  end)
+
+  it("works without the guild roster API and without PlaySoundFile", function()
+    _G.GetGuildRosterInfo = nil
+    _G.PlaySoundFile = nil
+    wow.inGuild = true
+    wow.guildName = "Die Gilde"
+    login()
+    local sent = spy.on(ns.Core.transport, "Send")
+    assert.has_no.errors(function() fire("GUILD_ROSTER_UPDATE") end)
+    assert.spy(sent).was_called(1)
+
+    LibStub("LibSharedMedia-3.0"):Register("sound", "GF Test", "Sound\\gf-test.ogg")
+    GrudgeForeverDB.settings.lists.enemy.sound = "GF Test"
+    assert.has_no.errors(function() ns.Core.TestAlert("enemy") end)
+    assert.is_true(chatContains(ns.L["TEST_REASON"]))
   end)
 
   it("hints at disabled enemy nameplates once per account", function()

@@ -336,11 +336,17 @@ function Sync:OnMessage(msg, senderName)
   handlers[msg.t](self, msg, sender)
 end
 
--- When the guild roster is complete for the first time (again after OnGuildChanged).
+-- When the guild is known and its roster started to arrive (again after OnGuildChanged).
 function Sync:OnRosterReady()
   if self.helloSent or self.deps.mode() ~= "auto" or not self:hasGuild() then return end
   self.helloSent = true
   self:sendHello(false)
+end
+
+-- The sync mode was changed in the settings: switching to auto says hello (again) right away.
+function Sync:OnModeChanged()
+  self.helloSent = false
+  self:OnRosterReady()
 end
 
 -- The current character joined, left or switched guilds: forget everything planned for the old one,

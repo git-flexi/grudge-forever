@@ -7,13 +7,16 @@ local Const, L, Names = ns.Const, ns.L, ns.Names
 local Core = { ready = false }
 
 local ROSTER_DEBUG_NAMES = 3
+local HELLO_TIMEOUT = 10 -- seconds after login to say hello when no roster update came
 local GAME_EVENTS = {
   "CHAT_MSG_WHISPER", "PARTY_INVITE_REQUEST", "GROUP_ROSTER_UPDATE", "NAME_PLATE_UNIT_ADDED",
   "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT", "GUILD_ROSTER_UPDATE", "PLAYER_GUILD_UPDATE",
 }
 
-local guildResolved = false -- the current guild (or none) is known and set in the store
-local rosterReady = false   -- a complete roster of the current guild was seen
+-- The current guild (or none) is known and set in the store. Until then the store holds the guild
+-- this character had last time, for lookups only: sync stays off, so nothing about that guild can
+-- reach a guild the character may have joined meanwhile.
+local guildResolved = false
 
 function Core.Print(text)
   DEFAULT_CHAT_FRAME:AddMessage(L["CHAT_PREFIX"] .. tostring(text))
@@ -40,10 +43,15 @@ function Core.Change(fn)
   return unpack(results, 1, results.n)
 end
 
+-- Whether there is a guild to sync with.
+function Core.HasSyncGuild()
+  return guildResolved and Core.store:GetCurrentGuild() ~= nil
+end
+
 -- "Sync now" from the window or /gf sync; reports the outcome in chat.
 function Core.ManualSync()
   if Core.sv.settings.syncMode == "off" then return Core.Print(L["SYNC_OFF"]) end
-  if not Core.store:GetCurrentGuild() then return Core.Print(L["SYNC_NO_GUILD"]) end
+  if not Core.HasSyncGuild() then return Core.Print(L["SYNC_NO_GUILD"]) end
   local ok, remaining = Core.sync:ManualSync()
   if ok then
     Core.Print(L["SYNC_STARTED"])
@@ -58,7 +66,7 @@ end
 local function playSound(resolved)
   if resolved.kind == "kit" then
     PlaySound(resolved.id, "Master")
-  else
+  elseif PlaySoundFile then
     PlaySoundFile(resolved.path, "Master")
   end
 end
@@ -96,7 +104,7 @@ local function updateGuild()
   local store = Core.store
   if guildResolved and store:GetCurrentGuild() == guild then return end
   Core.char = Core.char or Names.FromUnit("player")
-  guildResolved, rosterReady = true, false
+  guildResolved = true
   store:SetCurrentCharacter(Core.char, guild)
   store:DropStaleGuildCaches()
   Core.sync:OnGuildChanged()
@@ -109,9 +117,14 @@ local function printable(raw)
   return tostring(raw)
 end
 
-local function onRoster()
-  updateGuild()
-  if not Core.store:GetCurrentGuild() then return end
+-- Hello to the guild once its name is known (Sync says it only once per guild and mode change).
+local function sayHello()
+  if Core.HasSyncGuild() then Core.sync:OnRosterReady() end
+end
+
+-- Prunes owners that left; only a complete roster can tell (and only if the client has the API).
+local function pruneByRoster()
+  if not (GetGuildRosterInfo and GetNumGuildMembers) then return end
   local total = GetNumGuildMembers() or 0
   local keys, count, samples = {}, 0, {}
   for i = 1, total do
@@ -129,11 +142,21 @@ local function onRoster()
 
   local complete = total > 0 and count == total
   local removed = Core.sync:OnRoster(keys, complete)
-  if complete and not rosterReady then
-    rosterReady = true
-    Core.sync:OnRosterReady()
-  end
   if #removed > 0 then refreshWindow() end
+end
+
+local function onRoster()
+  updateGuild()
+  if not Core.HasSyncGuild() then return end
+  -- prune first, so the hello does not advertise owners that just left
+  pruneByRoster()
+  sayHello()
+end
+
+-- Options: the sync mode changed.
+function Core.OnSyncModeChanged()
+  Core.sync:OnModeChanged()
+  refreshWindow()
 end
 
 -- Group ------------------------------------------------------------------------------
@@ -173,6 +196,9 @@ local function onLogin(frame)
   if Core.ready then return end
   local sv, store = Core.sv, Core.store
   Core.char = Names.FromUnit("player")
+  -- the character is known at once; its guild from last time stands in until the client loads it
+  local last = sv.myChars[Names.Normalize(Core.char) or ""]
+  store:SetCurrentCharacter(Core.char, last and last.guild)
   store:PruneTombstones()
 
   Core.alerts = ns.Alerts.New({ settings = function() return sv.settings end, now = GetServerTime, out = outputs })
@@ -195,7 +221,7 @@ local function onLogin(frame)
     now = GetServerTime,
     after = function(seconds, fn) return C_Timer.NewTimer(seconds, fn) end,
     random = math.random,
-    mode = function() return sv.settings.syncMode end,
+    mode = function() return guildResolved and sv.settings.syncMode or "off" end,
     sv = sv,
   })
   Core.transport:Register()
@@ -205,11 +231,16 @@ local function onLogin(frame)
   ns.UnitMenu.Install(store)
   ns.OptionsPanel.Register(sv.settings, {
     testAlert = Core.TestAlert, bannerLock = ns.Banner.SetLocked, bannerReset = ns.Banner.ResetPosition,
+    syncModeChanged = Core.OnSyncModeChanged,
   })
 
   Core.ready = true
   updateGuild()
   if IsInGuild() then C_GuildInfo.GuildRoster() end
+  C_Timer.After(HELLO_TIMEOUT, function()
+    updateGuild()
+    sayHello()
+  end)
   hintNameplates(sv)
   for _, event in ipairs(GAME_EVENTS) do frame:RegisterEvent(event) end
 end

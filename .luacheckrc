@@ -35,6 +35,6 @@ files["tests/**"] = {
     "hooksecurefunc", "securecallfunction", "GetTime", "GetFramerate", "ChatThrottleLib", "C_UIFileAsset",
     "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
     "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants",
-    "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "geterrorhandler",
+    "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "geterrorhandler", "Settings",
   },
 }

@@ -186,6 +186,28 @@ describe("Sync", function()
     assert.equals(2, #sent({ t = "H" }))
   end)
 
+  it("says hello again when the sync mode changes to auto", function()
+    local a = newClient("Jaina Proudmoore", { mode = "manual" })
+    a.sync:OnRosterReady()
+    assert.equals(0, #sent({ t = "H" }))
+    a.mode = "auto"
+    a.sync:OnModeChanged()
+    assert.equals(1, #sent({ t = "H" }))
+    a.sync:OnRosterReady()
+    assert.equals(1, #sent({ t = "H" }))
+    a.mode = "off"
+    a.sync:OnModeChanged()
+    assert.equals(1, #sent({ t = "H" }))
+    a.mode = "auto"
+    a.sync:OnModeChanged()
+    assert.equals(2, #sent({ t = "H" }))
+    -- without a guild it waits for the next roster
+    local loner = newClient("Varian Wrynn", { guild = false, mode = "manual" })
+    loner.mode = "auto"
+    loner.sync:OnModeChanged()
+    assert.equals(0, #sent({ from = loner }))
+  end)
+
   it("sends only the changed entry as a live delta", function()
     local a = newClient("Jaina Proudmoore")
     local b = newClient("Arthas Menethil")
