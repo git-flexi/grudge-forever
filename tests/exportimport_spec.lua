@@ -188,6 +188,8 @@ describe("ExportImport", function()
       { "Num Reason", "enemy", 5, nil, clock, clock },
       { "No Updated", "enemy", "x", nil, clock, "gestern" },
       { "No Created", "enemy", "x", nil, nil, clock },
+      { "Negative Time", "enemy", "x", nil, -5, clock },
+      { "Huge Time", "enemy", "x", nil, clock, math.huge },
       "kein row",
       { "Umlaut Name", "enemy", string.rep("ö", 80), nil, clock, clock },
     }))

@@ -305,6 +305,106 @@ describe("Store", function()
     assert.is_table(store:GetOwners().aaaaaaaaaaaaaaaa)
   end)
 
+  it("rejects imported times that are negative, infinite or not a number", function()
+    for _, bad in ipairs({ -1, math.huge, -math.huge, 0 / 0, "1" }) do
+      local r, err = store:ImportEntry({ name = "Thrall Earthson", list = "enemy", reason = "x",
+        created = bad, updated = clock })
+      assert.is_nil(r)
+      assert.equals("invalid_time", err)
+      r, err = store:ImportEntry({ name = "Thrall Earthson", list = "enemy", reason = "x",
+        created = clock, updated = bad })
+      assert.is_nil(r)
+      assert.equals("invalid_time", err)
+    end
+    assert.equals(0, sv.own.rev)
+    assert.equals("added", store:ImportEntry({ name = "Thrall Earthson", list = "enemy", reason = "x",
+      created = 0, updated = clock }))
+  end)
+
+  it("ties the origins of a claimed identity to the current guild", function()
+    giveOwner("aaaaaaaaaaaaaaaa", 2, {
+      entry("enemy", "Thrall Earthson", 1, { origin = "Sylvanas Windrunner" }),
+      entry("enemy", "Cairne Bloodhoof", 2),
+    }, "Arthas Menethil", { ["arthas menethil"] = "Arthas Menethil" })
+    assert.is_true(store:TryClaimIdentity("aaaaaaaaaaaaaaaa"))
+    assert.equals(GUILD, sv.own.entries["enemy:thrall earthson"].originGuild)
+    assert.is_nil(sv.own.entries["enemy:cairne bloodhoof"].originGuild)
+    -- the origin is shared again in this guild
+    local d = store:DeltaFor("aaaaaaaaaaaaaaaa", 0)
+    for _, e in ipairs(d.e) do
+      if e.key == "thrall earthson" then assert.equals("Sylvanas Windrunner", e.origin) end
+    end
+  end)
+
+  it("replaces a cached owner's entries with a full delta, but merges full deltas of the own id", function()
+    giveOwner("aaaaaaaaaaaaaaaa", 2, { entry("enemy", "Thrall Earthson", 1), entry("enemy", "Cairne Bloodhoof", 2) })
+    -- the owner's tombstone for Thrall expired, so its full state no longer names it
+    assert.equals("applied", giveOwner("aaaaaaaaaaaaaaaa", 5, { entry("enemy", "Cairne Bloodhoof", 5) }))
+    assert.same({}, store:Lookup("Thrall Earthson"))
+    assert.equals(1, #store:Lookup("Cairne Bloodhoof"))
+    -- a stale full delta changes nothing
+    assert.equals("stale", giveOwner("aaaaaaaaaaaaaaaa", 4, {}))
+    assert.equals(1, #store:Lookup("Cairne Bloodhoof"))
+    -- an incremental delta still merges
+    assert.equals("applied", store:ApplyDelta({ o = "aaaaaaaaaaaaaaaa", rev = 6, base = 5,
+      e = { entry("enemy", "Baine Bloodhoof", 6) } }))
+    assert.equals(1, #store:Lookup("Cairne Bloodhoof"))
+    assert.equals(1, #store:Lookup("Baine Bloodhoof"))
+
+    local id = store:GetPlayerId()
+    store:AddOrUpdate("friendly", "Jaina Proudmoore", "local")
+    assert.equals("applied", store:ApplyDelta({ o = id, rev = 3, base = 0, chars = {},
+      e = { entry("enemy", "Garrosh Hellscream", 3) } }))
+    assert.equals(1, #store:Lookup("Jaina Proudmoore"))
+    assert.equals(1, #store:Lookup("Garrosh Hellscream"))
+  end)
+
+  describe("NoteMember", function()
+    it("learns the characters and current character of a member that said hello", function()
+      store:NoteMember("aaaaaaaaaaaaaaaa", { "Jaina Proudmoore", "Twink-Char" }, "Twink Char")
+      local owner = store:GetOwners().aaaaaaaaaaaaaaaa
+      assert.equals(0, owner.rev)
+      assert.same({ ["jaina proudmoore"] = "Jaina Proudmoore", ["twink char"] = "Twink Char" }, owner.chars)
+      assert.equals("Twink Char", owner.lastChar)
+      assert.same({ [store:GetPlayerId()] = 0, aaaaaaaaaaaaaaaa = 0 }, store:Digest())
+
+      -- merges into a known owner and keeps its data
+      giveOwner("bbbbbbbbbbbbbbbb", 1, { entry("enemy", "Thrall Earthson", 1) })
+      store:NoteMember("bbbbbbbbbbbbbbbb", { "Muradin Bronzebeard" }, "Muradin Bronzebeard")
+      owner = store:GetOwners().bbbbbbbbbbbbbbbb
+      assert.equals(1, owner.rev)
+      assert.equals("Jaina Proudmoore", owner.chars["jaina proudmoore"])
+      assert.equals("Muradin Bronzebeard", owner.chars["muradin bronzebeard"])
+      assert.equals("Muradin Bronzebeard", owner.lastChar)
+      assert.equals("Muradin Bronzebeard", store:Lookup("Thrall Earthson")[1].by)
+    end)
+
+    it("never notes the own id and nothing without a guild", function()
+      store:NoteMember(store:GetPlayerId(), { "Jaina Proudmoore" }, "Jaina Proudmoore")
+      assert.same({}, store:GetOwners())
+      store:SetCurrentCharacter("Arthas Menethil", nil)
+      store:NoteMember("aaaaaaaaaaaaaaaa", { "Jaina Proudmoore" }, "Jaina Proudmoore")
+      assert.same({}, sv.guilds)
+    end)
+
+    it("keeps a member that is online only on a twink the guild never learned from data", function()
+      giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) })
+      local roster = { ["arthas menethil"] = true, ["twink char"] = true }
+      store:NoteMember("aaaaaaaaaaaaaaaa", {}, "Twink Char")
+      assert.same({}, store:PruneByRoster(roster, true))
+      assert.equals(1, #store:Lookup("Thrall Earthson"))
+    end)
+
+    it("takes a pruned member back, since speaking on the guild channel proves membership", function()
+      giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) })
+      store:PruneByRoster({ ["arthas menethil"] = true }, true)
+      assert.is_true(store:IsPruned("aaaaaaaaaaaaaaaa"))
+      store:NoteMember("aaaaaaaaaaaaaaaa", { "Twink Char" }, "Twink Char")
+      assert.is_false(store:IsPruned("aaaaaaaaaaaaaaaa"))
+      assert.equals("Twink Char", store:GetOwners().aaaaaaaaaaaaaaaa.chars["twink char"])
+    end)
+  end)
+
   it("prunes owners by roster only after they were seen and the roster is complete", function()
     giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) })
     assert.same({}, store:PruneByRoster({}, true))

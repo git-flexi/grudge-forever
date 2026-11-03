@@ -60,6 +60,12 @@ function Store.EntryId(list, key)
 end
 
 -- Shared validators: Sync checks untrusted messages with the same rules.
+
+-- A finite, non-negative number (rejects NaN and ±inf).
+function Store.IsCount(v)
+  return type(v) == "number" and v == v and v >= 0 and v < math.huge
+end
+
 function Store.IsList(list)
   return isList(list)
 end
@@ -178,7 +184,8 @@ function Store:ImportEntry(e)
   local key = Names.Normalize(e.name)
   if not key then return nil, "invalid_name" end
   if not Store.IsValidReason(e.reason) then return nil, "invalid_reason" end
-  if type(e.created) ~= "number" or type(e.updated) ~= "number" then return nil, "invalid_time" end
+  -- a bad time would sort wrong and poison every later full delta of the own entries
+  if not Store.IsCount(e.created) or not Store.IsCount(e.updated) then return nil, "invalid_time" end
 
   -- a creator that is one of our own characters is no origin
   local origin = Names.Display(e.origin)
@@ -369,6 +376,9 @@ function Store:DeltaFor(ownerId, sinceRev)
 end
 
 -- Expects a well-formed delta; Sync validates untrusted messages first.
+-- A full delta (base 0) of another owner is that owner's whole state and replaces the cached entries,
+-- so entries whose tombstones the owner already dropped do not live on here. Own entries are always
+-- merged: local ones must never be lost to a relayed state.
 function Store:ApplyDelta(delta)
   local ownerId = delta.o
   local isOwn = ownerId == self.sv.playerId
@@ -379,6 +389,7 @@ function Store:ApplyDelta(delta)
   if delta.base > known then return "need_full" end
 
   local target = isOwn and self.sv.own or self:ownerFor(ownerId)
+  if not isOwn and delta.base == 0 then target.entries = {} end
   for _, e in ipairs(delta.e or {}) do
     local id = entryId(e.list, e.key)
     local existing = target.entries[id]
@@ -415,11 +426,35 @@ function Store:TryClaimIdentity(ownerId)
   local owner = self:GetOwners()[ownerId]
   if not owner or not self.currentKey or not owner.chars[self.currentKey] then return false end
 
-  for _, e in pairs(owner.entries) do e.char = owner.lastChar or self:GetCurrentChar() end
+  for _, e in pairs(owner.entries) do
+    e.char = owner.lastChar or self:GetCurrentChar()
+    -- the guild shared these origins, so they belong to it
+    if e.origin then e.originGuild = self:GetCurrentGuild() end
+  end
   sv.playerId = ownerId
   sv.own = { rev = owner.rev, entries = owner.entries }
   self.sv.guilds[self:GetCurrentGuild()].owners[ownerId] = nil
   return true
+end
+
+-- A member said hello on the guild channel, which proves it is in the guild: learn its characters
+-- (also a twink no data mentioned yet), remember the speaking one for "by", and take it back if it
+-- was pruned. charList: display names; char: the speaking character.
+function Store:NoteMember(ownerId, charList, char)
+  if ownerId == self.sv.playerId then return end
+  local owner = self:ownerFor(ownerId)
+  if not owner then return end
+  for _, name in ipairs(charList or {}) do
+    local key = Names.Normalize(name)
+    if key then owner.chars[key] = Names.Display(name) end
+  end
+  local key = Names.Normalize(char)
+  if key then
+    owner.chars[key] = Names.Display(char)
+    owner.lastChar = Names.Display(char)
+  end
+  local g = self.sv.guilds[self:GetCurrentGuild()]
+  if g.pruned then g.pruned[ownerId] = nil end
 end
 
 -- Maintenance -----------------------------------------------------------------
