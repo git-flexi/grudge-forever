@@ -194,6 +194,13 @@ describe("Store", function()
     assert.equals("Sylvanas Windrunner", store:Lookup("Thrall Earthson", "enemy")[1].entry.origin)
   end)
 
+  it("builds the entry id Adopt expects from a list and key", function()
+    giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) })
+    local e = store:Lookup("Thrall Earthson", "enemy")[1].entry
+    assert.equals("enemy:thrall earthson", ns.Store.EntryId(e.list, e.key))
+    assert.equals(1, store:Adopt("aaaaaaaaaaaaaaaa", ns.Store.EntryId(e.list, e.key)))
+  end)
+
   it("tracks revisions, digest and rejects stale or gapped deltas", function()
     local id = store:GetPlayerId()
     store:AddOrUpdate("enemy", "Thrall Earthson", "x")

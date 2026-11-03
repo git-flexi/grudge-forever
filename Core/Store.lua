@@ -54,6 +54,11 @@ local function sortMatches(matches)
   return matches
 end
 
+-- The id Adopt takes for a single entry.
+function Store.EntryId(list, key)
+  return entryId(list, key)
+end
+
 -- Shared validators: Sync checks untrusted messages with the same rules.
 function Store.IsList(list)
   return isList(list)

@@ -313,13 +313,19 @@ function Sync:OnGuildChanged()
   self.helloSent = false
 end
 
+-- Seconds until "sync now" is allowed again (0 = now).
+function Sync:CooldownRemaining()
+  local since = self.deps.now() - (self.deps.sv.lastManualSync or 0)
+  if since >= 0 and since < Const.SYNC_COOLDOWN then return Const.SYNC_COOLDOWN - since end
+  return 0
+end
+
 -- Returns true, or false plus the remaining cooldown in seconds (0 when sync is off).
 function Sync:ManualSync()
   if self.deps.mode() == "off" or not self:hasGuild() then return false, 0 end
-  local sv, now = self.deps.sv, self.deps.now()
-  local since = now - (sv.lastManualSync or 0)
-  if since >= 0 and since < Const.SYNC_COOLDOWN then return false, Const.SYNC_COOLDOWN - since end
-  sv.lastManualSync = now
+  local remaining = self:CooldownRemaining()
+  if remaining > 0 then return false, remaining end
+  self.deps.sv.lastManualSync = self.deps.now()
   self:sendHello(true)
   return true
 end

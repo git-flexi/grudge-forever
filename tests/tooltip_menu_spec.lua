@@ -208,6 +208,15 @@ describe("Tooltip and UnitMenu", function()
       assert.equals("friendly", ns.UnitMenu.Actions(store, "Jaina Proudmoore", "MENU_UNIT_PLAYER", "focus")[1].list)
     end)
 
+    it("exposes the faction check for the target", function()
+      wow.units.target = { name = "Thrall", surname = "Earthson", player = true, faction = "Horde" }
+      assert.is_true(ns.UnitMenu.IsOtherFaction("target"))
+      wow.units.target.faction = "Alliance"
+      assert.is_false(ns.UnitMenu.IsOtherFaction("target"))
+      wow.units.target = nil
+      assert.is_false(ns.UnitMenu.IsOtherFaction("target"))
+    end)
+
     it("falls back to friendly when a faction is unknown", function()
       wow.units.target = { name = "Thrall", surname = "Earthson", player = true }
       assert.equals("friendly", ns.UnitMenu.Actions(store, "Thrall Earthson", "MENU_UNIT_PLAYER", "target")[1].list)

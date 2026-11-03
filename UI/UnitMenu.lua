@@ -38,6 +38,7 @@ local function isOtherFaction(unit)
   if Names.IsSecret(theirs) or Names.IsSecret(mine) then return false end
   return theirs ~= mine
 end
+UnitMenu.IsOtherFaction = isOtherFaction
 
 -- Returns { {labelKey, kind, list} ... }: "add", "edit" (own entry) or "mute"/"unmute" (foreign entries only).
 function UnitMenu.Actions(store, name, tag, unit)

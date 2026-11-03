@@ -524,6 +524,20 @@ describe("Sync", function()
     assert.equals(2, #sent({ t = "H" }))
   end)
 
+  it("reports the remaining manual sync cooldown", function()
+    local a = newClient("Jaina Proudmoore")
+    assert.equals(0, a.sync:CooldownRemaining())
+    a.sync:ManualSync()
+    assert.equals(COOLDOWN, a.sync:CooldownRemaining())
+    clock = clock + 120
+    assert.equals(180, a.sync:CooldownRemaining())
+    clock = clock + 180
+    assert.equals(0, a.sync:CooldownRemaining())
+    -- a clock set back before the last sync never blocks
+    a.sv.lastManualSync = clock + 50
+    assert.equals(0, a.sync:CooldownRemaining())
+  end)
+
   it("does nothing at all in off mode", function()
     local a = newClient("Jaina Proudmoore", { mode = "off" })
     local b = newClient("Arthas Menethil")
