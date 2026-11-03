@@ -8,7 +8,7 @@ ignore = { "211/ADDON" }
 read_globals = {
   "issecretvalue", "UnitExists", "UnitIsPlayer", "UnitName", "UnitFactionGroup",
   "GetLocale", "GetServerTime", "C_Timer", "C_ChatInfo", "IsInGuild", "LibStub",
-  "CreateFrame", "UIParent", "TooltipDataProcessor", "Enum", "Menu",
+  "CreateFrame", "UIParent", "TooltipDataProcessor", "Enum", "Menu", "Settings",
 }
 
 -- the single addon-owned global

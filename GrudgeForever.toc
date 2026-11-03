@@ -18,7 +18,9 @@ Core\ExportImport.lua
 Core\Sync.lua
 Core\Transport.lua
 Core\Alerts.lua
+Core\Options.lua
 Core\Detect.lua
 UI\Banner.lua
+UI\OptionsPanel.lua
 UI\Tooltip.lua
 UI\UnitMenu.lua
