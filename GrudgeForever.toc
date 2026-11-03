@@ -18,4 +18,5 @@ Core\ExportImport.lua
 Core\Sync.lua
 Core\Transport.lua
 Core\Alerts.lua
+Core\Detect.lua
 UI\Banner.lua
