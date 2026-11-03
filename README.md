@@ -1,15 +1,135 @@
 # GrudgeForever
 
-Addon für WoW: Forever. Du markierst Spieler, mit denen du nie wieder spielen willst (Blacklist, eigene Fraktion) oder die du sofort angreifen willst (KOS, gegnerische Fraktion). Die Markierungen werden mit Gildenmitgliedern geteilt, die das Addon ebenfalls haben. GrudgeForever warnt dich nur, es lehnt nichts ab, ignoriert niemanden und kickt niemanden.
+A grudge list for **World of Warcraft: Forever** that you share with your guild.
 
-## Installation
+Mark players you never want to group with again (*Blacklist*, your own faction) or want to attack on sight (*KOS*, enemy faction). The marks are shared with guildmates who also run the addon, and GrudgeForever warns you when one of those players shows up. It only warns: it never declines invites, ignores or kicks anyone.
 
-1. `make package` ausführen. Das erzeugt `dist/GrudgeForever-<Version>.zip`.
-2. Die ZIP-Datei in den Ordner `Interface/AddOns` der WoW-Forever-Installation entpacken, sodass `Interface/AddOns/GrudgeForever/GrudgeForever.toc` existiert.
-3. Der Ordnername der Forever-Installation kann anders heißen als bei Retail oder Classic. Suche den Ordner, der `Interface/AddOns` für Forever enthält (nicht den von Retail/Classic). Wenn dort schon andere Forever-Addons liegen, ist es der richtige.
-4. Spiel starten. In der Addon-Liste muss GrudgeForever aktiv sein.
+> [!WARNING]
+> **Alpha.** The logic is covered by automated tests, but the addon has not been played in-game yet. Please report bugs together with the output of `/gf debug` (see *First in-game test* below).
 
-## Befehle
+🇩🇪 **Deutsche Anleitung:** ganz unten zum Aufklappen.
+
+## 📦 Installation
+
+1. Download the latest `GrudgeForever-<version>.zip` from [Releases](https://github.com/git-flexi/grudge-forever/releases).
+2. Unzip it into the `Interface/AddOns` folder of your **WoW Forever** installation (not the Retail or Classic one), so that `Interface/AddOns/GrudgeForever/GrudgeForever.toc` exists.
+3. Start the game and make sure GrudgeForever is enabled in the AddOns list.
+4. Turn on **enemy nameplates** (`Ctrl+V`) — on-sight alerts rely on them. If they are off, GrudgeForever tells you once in chat.
+
+## ⌨️ Commands
+
+`/gf` or `/grudgeforever`:
+
+| Command | What it does |
+|---|---|
+| `/gf` | Open or close the main window |
+| `/gf add [First Last] [reason]` | Add a player. Without a name your target is used and its faction preselects the list. Opens the edit dialog. |
+| `/gf remove [First Last]` | Delete your own entry (without a name: your target) |
+| `/gf sync` | Sync with the guild now |
+| `/gf export` | Show your own entries as text to copy |
+| `/gf import` | Paste exported text |
+| `/gf debug` | Toggle diagnostic mode (see below) |
+| `/gf config` | Open the settings |
+
+Always use first **and** last name — the full name is the list key. A reason can be at most 80 characters long.
+
+## 🖱️ Right-click menu
+
+Right-click a player (target frame, party/raid frames, chat names, guild roster) for **Add to GrudgeForever...**. For players already on a list you get **Edit GrudgeForever entry...** (your own entries) or **Mute** / **Unmute** (other people's entries). Muting only affects you and is not shared.
+
+## 📋 Main window
+
+Two tabs: **Own faction** (Blacklist) and **Enemy faction** (KOS). One row per player with reason, author, date and status; players listed by several people expand to show every entry. Filter **All entries** / **Only mine** and a name search.
+
+Buttons: **Add**, **Edit**, **Delete** (own entries only), **Adopt** (copy someone else's entry into your own list) and **Adopt all from …**, **Export**, **Import**, **Sync now**.
+
+## ⚙️ Settings
+
+Game menu → Options → AddOns → GrudgeForever (or `/gf config`):
+
+- **General:** sync mode (Automatic / Manual / Off), unlock and move the alert banner, reset its position, diagnostic mode
+- **Per list:** enabled, sound (None, Raid warning, Minimap ping or any LibSharedMedia sound — with a **Preview** button), icon (skull, cross, exclamation mark or a custom texture path), message text with the placeholders `{name}` `{reason}` `{by}` `{trigger}`, banner on/off, chat on/off, warning cooldown (default 300 s)
+
+**When you get warned**
+
+| List | Trigger |
+|---|---|
+| Blacklist (own faction) | the player whispers you, invites you, or is in your group |
+| KOS (enemy faction) | the player is seen via nameplate, target or mouseover |
+
+Each player warns at most once per cooldown; a group warning appears once per group.
+
+## 🔄 Guild sync
+
+- **Automatic:** syncs on guild activity, right after login, without you doing anything
+- **Manual:** only via `/gf sync` or the **Sync now** button
+- **Off:** no sync at all
+
+**Sync now** has a 5-minute cooldown (the button shows the time left). Other clients also answer requests from the same sender at most every 5 minutes — that's on purpose, so nobody can flood the guild.
+
+How entries are shared:
+
+- Entries belong to a **player** (account), not a single character — you can edit them from any of your characters.
+- Your own entries go to every guild you have a character in. A guild only ever learns about your characters that are in *that* guild, so your alts in other guilds stay private.
+- When an author leaves the guild (none of their characters is in the roster any more), their entries disappear for everyone. Entries you adopted stay, because they are yours.
+- Deleted entries are kept as tombstones for 90 days so the deletion can spread.
+
+## 💾 Export / import
+
+Only **your own** entries are exported (including adopted ones). Import adds them to your list: they belong to you afterwards, and the original author stays visible as the source. Good for backups and moving to another PC.
+
+## 🧪 First in-game test: `/gf debug`
+
+The game client wasn't available while developing, so the exact name format the game delivers still needs checking:
+
+1. Type `/gf debug`. From now on the addon prints names from game events to chat: `[GrudgeForever debug] <event>: <name> -> <result>`.
+2. Have someone whisper you, invite you to a group, join a group, target someone, or hover over players.
+3. For each event check: does the name look like `First Last` (or `First-Last`)? Does the line end in `match` / `no match` (the name was evaluated) or `ignored` (the name couldn't be read)? An entry you added yourself must give `match` for that name.
+4. Guild roster: once the roster has loaded you get `guild roster: X members, Y names read, first: ...`. X and Y should be equal. If they differ, or only secret/empty names show up, guild name detection doesn't work.
+5. Send back the output (copy the chat lines), especially whisper, invite and the guild roster line.
+
+Turn `/gf debug` off again afterwards.
+
+## ⚠️ Known limitations
+
+- **Instances:** player names are mostly hidden from addons there ("secret values"), so on-sight and tooltip detection works mainly in the open world.
+- **Combat and boss encounters:** whisper senders are hidden, so no warning; addon messages are blocked, so sync waits.
+- Sync only works with guildmates who have the addon installed and are online at the same time.
+- Trial accounts can't send addon messages, so they can't sync.
+- Same account on two PCs: changes made on both while offline are not merged — one PC may miss an edit (the guild still has it).
+- Without a guild the lists work normally, just without sync.
+
+## 🛠 Development
+
+Requirements: LuaJIT, [busted](https://lunarmodules.github.io/busted/) and [luacheck](https://github.com/lunarmodules/luacheck) (e.g. via LuaRocks with `--lua-version=5.1`).
+
+```bash
+make test      # run the test suite
+make lint      # luacheck
+make package   # build dist/GrudgeForever-<version>.zip
+```
+
+Bundled libraries and their sources are listed in [`Libs/README.md`](Libs/README.md).
+
+---
+
+<details>
+<summary><h2>🇩🇪 Deutsch</h2></summary>
+
+Eine Grudge-Liste für **World of Warcraft: Forever**, die du mit deiner Gilde teilst.
+
+Du markierst Spieler, mit denen du nie wieder spielen willst (*Blacklist*, eigene Fraktion) oder die du sofort angreifen willst (*KOS*, gegnerische Fraktion). Die Markierungen werden mit Gildenmitgliedern geteilt, die das Addon ebenfalls haben, und GrudgeForever warnt dich, sobald einer dieser Spieler auftaucht. Das Addon warnt nur: Es lehnt keine Einladungen ab, ignoriert niemanden und kickt niemanden.
+
+> **Alpha:** Die Logik ist automatisch getestet, im Spiel aber noch nicht erprobt. Bitte Fehler zusammen mit der Ausgabe von `/gf debug` melden.
+
+### 📦 Installation
+
+1. Die neueste `GrudgeForever-<Version>.zip` unter [Releases](https://github.com/git-flexi/grudge-forever/releases) herunterladen.
+2. In den Ordner `Interface/AddOns` der **WoW-Forever**-Installation entpacken (nicht Retail oder Classic), sodass `Interface/AddOns/GrudgeForever/GrudgeForever.toc` existiert.
+3. Spiel starten und prüfen, dass GrudgeForever in der Addon-Liste aktiv ist.
+4. **Feindliche Namensplaketten** einschalten (`Strg+V`) – die Sicht-Warnung braucht sie. Sind sie aus, weist GrudgeForever einmalig im Chat darauf hin.
+
+### ⌨️ Befehle
 
 `/gf` oder `/grudgeforever`:
 
@@ -24,60 +144,76 @@ Addon für WoW: Forever. Du markierst Spieler, mit denen du nie wieder spielen w
 | `/gf debug` | Diagnosemodus an/aus (siehe unten) |
 | `/gf config` | Einstellungen öffnen |
 
-Namen immer mit Vor- und Nachname angeben (der volle Name ist der Listen-Schlüssel). Der Grund darf höchstens 80 Zeichen lang sein.
+Namen immer mit Vor- **und** Nachname angeben – der volle Name ist der Listen-Schlüssel. Der Grund darf höchstens 80 Zeichen lang sein.
 
-## Rechtsklick-Menü
+### 🖱️ Rechtsklick-Menü
 
-Im Rechtsklick-Menü eines Spielers (Zielrahmen, Gruppe, Chat usw.) gibt es "Zu GrudgeForever hinzufügen...", bei bereits gelisteten Spielern "GrudgeForever-Eintrag bearbeiten..." sowie "Stumm schalten" / "Stumm aufheben" für Einträge anderer. Stummschalten gilt nur für dich und wird nicht geteilt.
+Im Rechtsklick-Menü eines Spielers (Zielrahmen, Gruppen-/Raidrahmen, Chatnamen, Gildenliste) gibt es **Zu GrudgeForever hinzufügen...**. Bei bereits gelisteten Spielern stattdessen **GrudgeForever-Eintrag bearbeiten...** (eigene Einträge) oder **Stumm schalten** / **Stumm aufheben** (Einträge anderer). Stummschalten gilt nur für dich und wird nicht geteilt.
 
-## Hauptfenster
+### 📋 Hauptfenster
 
-Zwei Reiter: "Eigene Fraktion" (Blacklist) und "Gegnerische Fraktion" (KOS). Pro Spieler eine Zeile mit Grund, Ersteller, Datum und Status. Filter "Alle Einträge" / "Nur meine". Buttons: Hinzufügen, Bearbeiten, Löschen, Übernehmen (Eintrag eines anderen in deinen Bestand kopieren, auch "Alle von X übernehmen"), Export, Import, "Jetzt abgleichen". Bearbeiten und Löschen kannst du nur deine eigenen Einträge.
+Zwei Reiter: **Eigene Fraktion** (Blacklist) und **Gegnerische Fraktion** (KOS). Pro Spieler eine Zeile mit Grund, Ersteller, Datum und Status; steht ein Spieler bei mehreren Leuten auf der Liste, lässt sich die Zeile aufklappen. Filter **Alle Einträge** / **Nur meine** und eine Namenssuche.
 
-## Einstellungen
+Buttons: **Hinzufügen**, **Bearbeiten**, **Löschen** (nur eigene Einträge), **Übernehmen** (Eintrag eines anderen in deinen Bestand kopieren) und **Alle von … übernehmen**, **Export**, **Import**, **Jetzt abgleichen**.
 
-Spiel-Menü, Einstellungen, Addons, GrudgeForever (oder `/gf config`). Dort:
+### ⚙️ Einstellungen
 
-- Abgleich-Modus: Automatisch, Manuell oder Aus
-- Banner entsperren/verschieben und Position zurücksetzen
-- Diagnosemodus
-- Pro Liste: Aktiviert, Sound (inkl. "Kein Sound" und "Minimap-Ping", mit "Vorschau"-Knopf), Symbol, Nachrichtentext mit den Platzhaltern `{name}` `{grund}` `{von}` `{anlass}`, Banner an/aus, Chat an/aus, Wartezeit zwischen Warnungen (Standard 300 s)
+Spielmenü → Optionen → AddOns → GrudgeForever (oder `/gf config`):
 
-## Gildenabgleich
+- **Allgemein:** Abgleich-Modus (Automatisch / Manuell / Aus), Banner entsperren und verschieben, Position zurücksetzen, Diagnosemodus
+- **Pro Liste:** aktiviert, Sound (Kein Sound, Schlachtzugswarnung, Minimap-Ping oder jeder LibSharedMedia-Sound – mit **Vorschau**-Knopf), Symbol (Totenkopf, Kreuz, Ausrufezeichen oder eigener Texturpfad), Nachrichtentext mit den Platzhaltern `{name}` `{grund}` `{von}` `{anlass}`, Banner an/aus, Chat an/aus, Wartezeit zwischen Warnungen (Standard 300 s)
 
-- Automatisch: Abgleich bei Gildenaktivität, nach dem Login ohne dein Zutun.
-- Manuell: nur über `/gf sync` oder den Button "Jetzt abgleichen".
-- Aus: kein Abgleich.
+**Wann gewarnt wird**
 
-"Jetzt abgleichen" hat eine Abklingzeit von 5 Minuten (der Button zeigt die Restzeit). Zusätzlich beantworten die Empfänger Abgleich-Anfragen desselben Absenders höchstens alle 5 Minuten. Das ist gewollt.
+| Liste | Anlass |
+|---|---|
+| Blacklist (eigene Fraktion) | der Spieler flüstert dir, lädt dich ein oder ist in deiner Gruppe |
+| KOS (gegnerische Fraktion) | der Spieler ist in Sicht (Namensplakette, Ziel, Mouseover) |
 
-Verlässt ein Ersteller die Gilde (kein Charakter von ihm mehr in der Gildenliste), verschwinden seine Einträge bei allen. Übernommene Einträge bleiben. Einträge gehören einem Spieler (Account), nicht einem Charakter. Gelöschte Einträge bleiben 90 Tage als Grabstein erhalten, damit die Löschung sich verbreiten kann.
+Jeder Spieler warnt höchstens einmal pro Wartezeit; die Gruppenwarnung kommt einmal pro Gruppe.
 
-## Feindliche Namensplaketten
+### 🔄 Gildenabgleich
 
-Die KOS-Warnung bei Sicht läuft über Namensplaketten, Ziel und Mouseover. Damit sie zuverlässig auslöst, müssen feindliche Namensplaketten im Spiel eingeschaltet sein. Sind sie aus, weist GrudgeForever einmalig im Chat darauf hin.
+- **Automatisch:** Abgleich bei Gildenaktivität, direkt nach dem Login ohne dein Zutun
+- **Manuell:** nur über `/gf sync` oder den Button **Jetzt abgleichen**
+- **Aus:** kein Abgleich
 
-## Export / Import
+**Jetzt abgleichen** hat eine Abklingzeit von 5 Minuten (der Button zeigt die Restzeit). Zusätzlich beantworten die anderen Addons Anfragen desselben Absenders höchstens alle 5 Minuten – das ist gewollt, damit niemand die Gilde fluten kann.
 
-Es werden nur deine eigenen Einträge exportiert (inkl. übernommener). Import fügt sie deinem Bestand hinzu, die Einträge gehören dann dir, der ursprüngliche Ersteller bleibt als Herkunft sichtbar. Taugt für Backup und Umzug auf einen anderen Rechner.
+So werden Einträge geteilt:
 
-## Erster Test im Spiel: `/gf debug`
+- Einträge gehören einem **Spieler** (Account), nicht einem Charakter – du kannst sie mit jedem deiner Charaktere bearbeiten.
+- Deine eigenen Einträge gehen in jede Gilde, in der du einen Charakter hast. Eine Gilde erfährt nur deine Charaktere, die in *dieser* Gilde sind – Twinks in anderen Gilden bleiben privat.
+- Verlässt ein Ersteller die Gilde (kein Charakter von ihm mehr in der Gildenliste), verschwinden seine Einträge bei allen. Übernommene Einträge bleiben, denn sie gehören dir.
+- Gelöschte Einträge bleiben 90 Tage als Grabstein erhalten, damit sich die Löschung verbreiten kann.
+
+### 💾 Export / Import
+
+Es werden nur **deine eigenen** Einträge exportiert (inkl. übernommener). Import fügt sie deinem Bestand hinzu: Sie gehören dann dir, der ursprüngliche Ersteller bleibt als Herkunft sichtbar. Taugt für Backup und Umzug auf einen anderen Rechner.
+
+### 🧪 Erster Test im Spiel: `/gf debug`
 
 Der Client war beim Entwickeln nicht verfügbar, daher ist offen, in welchem Format das Spiel Namen liefert. Das prüfst du so:
 
-1. `/gf debug` eingeben. Ab jetzt schreibt das Addon die Namen aus Ereignissen in den Chat (`[GrudgeForever Diagnose] <Ereignis>: <Name> -> <Ergebnis>`).
+1. `/gf debug` eingeben. Ab jetzt schreibt das Addon die Namen aus Ereignissen in den Chat: `[GrudgeForever Diagnose] <Ereignis>: <Name> -> <Ergebnis>`.
 2. Lass dir flüstern, lass dich in eine Gruppe einladen, tritt einer Gruppe bei, nimm jemanden ins Ziel oder fahr mit der Maus über Spieler.
-3. Prüfe pro Ereignis: Sieht der Name aus wie `Vorname Nachname` (oder `Vorname-Nachname`, evtl. mit Realm-Anhang)? Steht am Ende `match` bzw. `no match` (Name wurde ausgewertet) oder `ignored` (Name nicht auswertbar)? Ein Eintrag, den du selbst angelegt hast, muss bei seinem Namen `match` ergeben.
-4. Gildenliste: Sobald die Gildenliste geladen ist, kommt eine Zeile `Gildenliste: X Mitglieder, Y Namen gelesen, erste: ...`. X und Y sollten gleich sein. Weichen sie ab oder stehen nur geheime/leere Namen da, funktioniert die Namenserkennung für die Gilde nicht.
+3. Prüfe pro Ereignis: Sieht der Name aus wie `Vorname Nachname` (oder `Vorname-Nachname`)? Steht am Ende `match` bzw. `no match` (Name wurde ausgewertet) oder `ignored` (Name nicht auswertbar)? Ein Eintrag, den du selbst angelegt hast, muss bei seinem Namen `match` ergeben.
+4. Gildenliste: Sobald sie geladen ist, kommt eine Zeile `Gildenliste: X Mitglieder, Y Namen gelesen, erste: ...`. X und Y sollten gleich sein. Weichen sie ab oder stehen nur geheime/leere Namen da, funktioniert die Namenserkennung für die Gilde nicht.
 5. Gib die Ausgabe zurück (Chat-Zeilen kopieren), vor allem Whisper, Einladung und die Gildenlisten-Zeile.
 
 Danach `/gf debug` wieder ausschalten.
 
-## Bekannte Grenzen
+### ⚠️ Bekannte Grenzen
 
-- Instanzen: Spielernamen sind für Addons dort weitgehend geheim. Sicht- und Tooltip-Erkennung geht daher vor allem in der offenen Welt.
-- Kampf und Bossbegegnungen: Whisper-Absender sind geheim, es kommt keine Warnung. Addon-Nachrichten sind gesperrt, der Abgleich wartet.
+- **Instanzen:** Spielernamen sind für Addons dort weitgehend geheim, Sicht- und Tooltip-Erkennung geht daher vor allem in der offenen Welt.
+- **Kampf und Bossbegegnungen:** Whisper-Absender sind geheim, es kommt keine Warnung; Addon-Nachrichten sind gesperrt, der Abgleich wartet.
 - Der Abgleich funktioniert nur mit Gildenmitgliedern, die das Addon installiert haben und gleichzeitig online sind.
 - Testaccounts können keine Addon-Nachrichten senden, dort geht kein Abgleich.
-- Derselbe Account auf zwei Rechnern: Änderungen, die du auf beiden offline machst, werden nicht zusammengeführt.
+- Derselbe Account auf zwei Rechnern: Änderungen, die du auf beiden offline machst, werden nicht zusammengeführt – einem Rechner kann eine Änderung fehlen (die Gilde hat sie trotzdem).
 - Ohne Gilde funktionieren die Listen normal, nur ohne Abgleich.
+
+### 🛠 Entwicklung
+
+Voraussetzungen: LuaJIT, busted und luacheck (z. B. über LuaRocks mit `--lua-version=5.1`). Befehle: `make test`, `make lint`, `make package` (erzeugt `dist/GrudgeForever-<Version>.zip`). Die eingebetteten Bibliotheken und ihre Quellen stehen in [`Libs/README.md`](Libs/README.md).
+
+</details>
