@@ -6,6 +6,8 @@ local Banner = {}
 
 local DEFAULT_POINT, DEFAULT_X, DEFAULT_Y = "TOP", 0, -150
 local FADE_SECONDS = 1
+local PADDING = 10
+local MAX_LINES = 2 -- longer text is cut off inside the banner instead of spilling out
 
 local frame, fade
 local locked = true
@@ -56,12 +58,12 @@ local function create()
 
   frame.icon = frame:CreateTexture(nil, "ARTWORK")
   frame.icon:SetSize(44, 44)
-  frame.icon:SetPoint("LEFT", 10, 0)
+  frame.icon:SetPoint("LEFT", PADDING, 0)
 
   frame.text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  frame.text:SetPoint("LEFT", frame.icon, "RIGHT", 10, 0)
-  frame.text:SetPoint("RIGHT", -10, 0)
   frame.text:SetJustifyH("LEFT")
+  frame.text:SetWordWrap(true)
+  frame.text:SetMaxLines(MAX_LINES)
 
   fade = frame:CreateAnimationGroup()
   local alpha = fade:CreateAnimation("Alpha")
@@ -75,18 +77,32 @@ local function create()
   applyPosition()
 end
 
+-- The text starts right of the icon, or at the banner's left edge when there is none.
+local function anchorText(withIcon)
+  local t = frame.text
+  t:ClearAllPoints()
+  if withIcon then
+    t:SetPoint("LEFT", frame.icon, "RIGHT", PADDING, 0)
+  else
+    t:SetPoint("LEFT", PADDING, 0)
+  end
+  t:SetPoint("RIGHT", -PADDING, 0)
+end
+
 local function display(iconPath, text)
   if not frame then create() end
   generation = generation + 1
   local mine = generation
   fade:Stop()
   frame:SetAlpha(1)
-  if iconPath then
+  local withIcon = iconPath ~= nil and iconPath ~= ""
+  if withIcon then
     frame.icon:SetTexture(iconPath)
     frame.icon:Show()
   else
     frame.icon:Hide()
   end
+  anchorText(withIcon)
   frame.text:SetText(text or "")
   frame:Show()
   if not locked then return end -- the placeholder stays until the banner is locked again

@@ -5,7 +5,6 @@ local L = setmetatable({}, { __index = function(_, key) return key end })
 ns.L = L
 
 L["ADDON_TITLE"] = "GrudgeForever"
-L["ADDON_NOTES"] = "Keep a list of players you hold a grudge against, and friends you like - shared with your friends."
 
 L["TRIGGER_WHISPER"] = "is whispering you"
 L["TRIGGER_INVITE"] = "is inviting you"
@@ -39,7 +38,7 @@ L["OPT_ENABLED"] = "Enabled"
 L["OPT_SOUND"] = "Sound"
 L["OPT_SOUND_NONE"] = "None"
 L["OPT_SOUND_RAIDWARNING"] = "Raid warning"
-L["OPT_SOUND_MAPPING"] = "Mapping alert"
+L["OPT_SOUND_MAPPING"] = "Minimap ping"
 L["OPT_TEST"] = "Preview"
 L["OPT_ICON"] = "Icon"
 L["OPT_ICON_SKULL"] = "Skull"

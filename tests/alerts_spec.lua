@@ -272,4 +272,54 @@ describe("Banner", function()
     end)
     assert.is_nil(GrudgeForeverDB.settings and GrudgeForeverDB.settings.banner)
   end)
+
+  it("wraps long text to at most two lines and uses the icon's room when there is no icon", function()
+    -- recording stand-in: calls are logged per region, child regions are separate recorders
+    local regions = {}
+    local function recorder(kind)
+      local r = { kind = kind, calls = {} }
+      regions[#regions + 1] = r
+      return setmetatable(r, { __index = function(_, name)
+        if name == "CreateFontString" then return function() return recorder("FontString") end end
+        if name == "CreateTexture" then return function() return recorder("Texture") end end
+        if name == "CreateAnimationGroup" then return function() return recorder("AnimationGroup") end end
+        if name == "CreateAnimation" then return function() return recorder("Animation") end end
+        return function(_, ...)
+          r.calls[#r.calls + 1] = { name = name, args = { ... } }
+          return r
+        end
+      end })
+    end
+    local function last(r, name)
+      for i = #r.calls, 1, -1 do
+        if r.calls[i].name == name then return r.calls[i].args end
+      end
+    end
+    local function anchorsSinceClear(r)
+      local out = {}
+      for _, c in ipairs(r.calls) do
+        if c.name == "ClearAllPoints" then out = {} elseif c.name == "SetPoint" then out[#out + 1] = c.args end
+      end
+      return out
+    end
+    _G.UIParent = recorder("UIParent")
+    _G.CreateFrame = function() return recorder("Frame") end
+    _G.GrudgeForeverDB = {}
+    wow.load(wowEnv, "UI/Banner.lua")
+
+    wowEnv.Banner.Show("icon", "text")
+    local text
+    for _, r in ipairs(regions) do
+      if r.kind == "FontString" then text = r end
+    end
+    assert.same({ 2 }, last(text, "SetMaxLines"))
+    assert.same({ true }, last(text, "SetWordWrap"))
+    local anchors = anchorsSinceClear(text)
+    assert.equals("Texture", anchors[1][2].kind) -- next to the icon
+
+    wowEnv.Banner.Show(nil, "text")
+    anchors = anchorsSinceClear(text)
+    assert.equals("LEFT", anchors[1][1])
+    assert.is_number(anchors[1][2]) -- offset from the banner's own left edge
+  end)
 end)

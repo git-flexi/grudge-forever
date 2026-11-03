@@ -1,8 +1,8 @@
 ## Interface: 16001
-## AllowLoadGameType: forever
+## AllowLoadGameType: camelot
 ## Title: GrudgeForever
-## Notes: Keep a list of players you hold a grudge against, and friends you like - shared with your friends.
-## Notes-deDE: Führe eine Liste von Spielern, denen du grollst, und von Freunden, die du magst - geteilt mit deinen Freunden.
+## Notes: Mark players you never want to group with again, plus enemy KOS targets - get warned when they show up, and share the lists with your guild.
+## Notes-deDE: Markiere Spieler, mit denen du nie wieder spielen willst, und feindliche KOS-Ziele - werde gewarnt, wenn sie auftauchen, und teile die Listen mit deiner Gilde.
 ## Version: 0.1.0
 ## SavedVariables: GrudgeForeverDB
 

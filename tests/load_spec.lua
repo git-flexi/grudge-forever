@@ -87,6 +87,37 @@ describe("Addon load", function()
     assert.is_not_nil(eventFrame)
   end)
 
+  it("describes the addon for the Forever client in English and German", function()
+    local toc = "\n" .. readFile(ADDON .. ".toc")
+    assert.truthy(toc:find("\n## Interface: 16001\n", 1, true))
+    assert.truthy(toc:find("\n## AllowLoadGameType: camelot\n", 1, true))
+    local notes = toc:match("\n## Notes: ([^\n]+)")
+    local notesDe = toc:match("\n## Notes%-deDE: ([^\n]+)")
+    assert.truthy(notes and notes:find("KOS", 1, true) and notes:find("guild", 1, true))
+    assert.truthy(notesDe and notesDe:find("KOS", 1, true) and notesDe:find("Gilde", 1, true))
+    assert.is_nil(notes:lower():find("friend", 1, true))
+  end)
+
+  it("has every text in both locales and the reworded sound and preview labels", function()
+    local en = wow.newNs().L
+    -- the German file run on its own, recording what it sets
+    wow.locale = "deDE"
+    local de = {}
+    wow.load({ L = setmetatable({}, { __newindex = function(_, k, v) de[k] = v end }) }, "Locales/deDE.lua")
+    local missing = {}
+    for key in pairs(en) do
+      if de[key] == nil then missing[#missing + 1] = key end
+    end
+    table.sort(missing)
+    assert.same({}, missing)
+    assert.equals("Minimap ping", en["OPT_SOUND_MAPPING"])
+    assert.equals("Preview", en["OPT_TEST"])
+    assert.equals("Minimap-Ping", de["OPT_SOUND_MAPPING"])
+    assert.equals("Vorschau", de["OPT_TEST"])
+    assert.is_nil(rawget(en, "ADDON_NOTES"))
+    assert.is_nil(de["ADDON_NOTES"])
+  end)
+
   it("sets up saved variables, settings and slash commands when loaded", function()
     fire("ADDON_LOADED", "SomeOtherAddon")
     assert.is_nil(GrudgeForeverDB)

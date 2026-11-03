@@ -41,7 +41,7 @@ Spiel-Menü, Einstellungen, Addons, GrudgeForever (oder `/gf config`). Dort:
 - Abgleich-Modus: Automatisch, Manuell oder Aus
 - Banner entsperren/verschieben und Position zurücksetzen
 - Diagnosemodus
-- Pro Liste: Aktiviert, Sound (inkl. "Kein Sound" und "Probehören"), Symbol, Nachrichtentext mit den Platzhaltern `{name}` `{grund}` `{von}` `{anlass}`, Banner an/aus, Chat an/aus, Wartezeit zwischen Warnungen (Standard 300 s)
+- Pro Liste: Aktiviert, Sound (inkl. "Kein Sound" und "Minimap-Ping", mit "Vorschau"-Knopf), Symbol, Nachrichtentext mit den Platzhaltern `{name}` `{grund}` `{von}` `{anlass}`, Banner an/aus, Chat an/aus, Wartezeit zwischen Warnungen (Standard 300 s)
 
 ## Gildenabgleich
 
