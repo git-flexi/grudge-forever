@@ -14,7 +14,7 @@ local ADDON = "GrudgeForever"
 local GLOBALS = {
   "issecretvalue", "UnitExists", "UnitIsPlayer", "UnitName", "UnitFactionGroup",
   "GetLocale", "GetServerTime", "C_Timer", "C_ChatInfo", "IsInGuild", "LibStub",
-  "CreateFrame", "UIParent", "GrudgeForeverDB",
+  "CreateFrame", "UIParent", "GrudgeForeverDB", "TooltipDataProcessor", "Enum", "Menu",
 }
 
 -- Libraries that run as plain Lua, loaded through the real LibStub.

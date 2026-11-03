@@ -20,3 +20,5 @@ Core\Transport.lua
 Core\Alerts.lua
 Core\Detect.lua
 UI\Banner.lua
+UI\Tooltip.lua
+UI\UnitMenu.lua

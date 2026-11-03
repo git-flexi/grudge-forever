@@ -8,7 +8,7 @@ ignore = { "211/ADDON" }
 read_globals = {
   "issecretvalue", "UnitExists", "UnitIsPlayer", "UnitName", "UnitFactionGroup",
   "GetLocale", "GetServerTime", "C_Timer", "C_ChatInfo", "IsInGuild", "LibStub",
-  "CreateFrame", "UIParent",
+  "CreateFrame", "UIParent", "TooltipDataProcessor", "Enum", "Menu",
 }
 
 -- the single addon-owned global
@@ -20,6 +20,6 @@ files["tests/**"] = {
   globals = {
     "issecretvalue", "UnitExists", "UnitIsPlayer", "UnitName", "UnitFactionGroup",
     "GetLocale", "GetServerTime", "C_Timer", "C_ChatInfo", "IsInGuild", "LibStub",
-    "CreateFrame", "UIParent", "GrudgeForeverDB",
+    "CreateFrame", "UIParent", "GrudgeForeverDB", "TooltipDataProcessor", "Enum", "Menu",
   },
 }
