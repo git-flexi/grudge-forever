@@ -1,0 +1,14 @@
+## Interface: 16001
+## AllowLoadGameType: forever
+## Title: GrudgeForever
+## Notes: Keep a list of players you hold a grudge against, and friends you like - shared with your friends.
+## Notes-deDE: Führe eine Liste von Spielern, denen du grollst, und von Freunden, die du magst - geteilt mit deinen Freunden.
+## Version: 0.1.0
+## SavedVariables: GrudgeForeverDB
+
+embeds.xml
+
+Locales\enUS.lua
+Locales\deDE.lua
+Core\Const.lua
+Core\Names.lua

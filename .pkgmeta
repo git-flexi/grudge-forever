@@ -1,0 +1,9 @@
+package-as: GrudgeForever
+
+ignore:
+  - tests
+  - docs
+  - Makefile
+  - .busted
+  - .luacheckrc
+  - scripts
