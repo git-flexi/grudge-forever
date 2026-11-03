@@ -12,3 +12,4 @@ Locales\enUS.lua
 Locales\deDE.lua
 Core\Const.lua
 Core\Names.lua
+Core\Store.lua
