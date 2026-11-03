@@ -24,12 +24,13 @@ local TRIGGER_KEYS = {
 -- Placeholders: English names plus the German aliases used by the German default text.
 local ALIASES = { grund = "reason", von = "by", anlass = "trigger" }
 
+-- Values may come from other players: their pipes are escaped, the (own) template is used as written.
 function Alerts.Render(template, vars)
   return (template:gsub("{(%w+)}", function(token)
     local key = token:lower()
     local value = vars[ALIASES[key] or key]
     if value == nil then return nil end -- unknown placeholders stay as written
-    return tostring(value)
+    return Names.Escape(value)
   end))
 end
 

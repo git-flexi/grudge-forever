@@ -53,6 +53,11 @@ describe("Tooltip and UnitMenu", function()
       assert.truthy(lines[2].text:find("adopted from Jaina Proudmoore", 1, true))
     end)
 
+    it("escapes pipes in remote reasons, creators and origins", function()
+      local lines = ns.Tooltip.BuildLines({ foreign("a|cffb", "C|Hd", { origin = "E|Tf" }) })
+      assert.equals("a||cffb – by C||Hd · adopted from E||Tf", lines[2].text)
+    end)
+
     it("marks muted matches and greys them out", function()
       local m = foreign("rude", "Jaina Proudmoore")
       m.muted = true

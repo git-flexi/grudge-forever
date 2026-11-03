@@ -44,11 +44,29 @@ function Names.Display(name)
   return name
 end
 
--- Matching key: Display() lower-cased. string.lower only touches ASCII, so
--- UTF-8 bytes pass through unchanged and umlaut names still match themselves.
+-- string.lower only touches ASCII. The uppercase Latin-1 letters À-Þ (UTF-8 \195\128-\195\158, except
+-- the multiplication sign \195\151) have their lowercase form 32 code points higher, in the same lead byte.
+local function lowerLatin1(lead, byte)
+  local b = byte:byte()
+  if b == 151 then return nil end
+  return lead .. string.char(b + 32)
+end
+
+-- Matching key: Display() lower-cased, umlauts and other Latin-1 letters included.
 function Names.Normalize(name)
   local display = Names.Display(name)
-  return display and display:lower() or nil
+  if not display then return nil end
+  return (display:lower():gsub("(\195)([\128-\158])", lowerLatin1))
+end
+
+-- Text safe to show in a font string or chat frame: "|" starts UI escape codes (colors, links,
+-- textures), "||" shows a plain pipe. Doubles every lone pipe and keeps pairs, so remote text cannot
+-- inject codes. nil becomes "".
+function Names.Escape(text)
+  if text == nil then return "" end
+  return (tostring(text):gsub("|+", function(run)
+    if #run % 2 == 1 then return run .. "|" end
+  end))
 end
 
 function Names.FromUnit(unit)

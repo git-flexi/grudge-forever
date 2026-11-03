@@ -338,6 +338,22 @@ describe("Addon load", function()
       assert.is_true(chatContains(ns.L["MW_ADOPTED"]:format(1)))
     end)
 
+    it("escapes pipes in names, reasons and creators from other players", function()
+      ns.Core.store:ApplyDelta({ o = "bbbbbbbbbbbbbbbb", rev = 1, base = 0, lastChar = "Ev|cffil Guy", chars = {}, e = {
+        { key = "a|hb c", name = "A|Hb C", list = "friendly", reason = "x|Ty", origin = "O|r P",
+          created = 1, updated = 2, rev = 1, deleted = false },
+      } })
+      SlashCmdList.GRUDGEFOREVER("")
+      local list = rows()
+      local cells = list[1].cells
+      assert.equals("A||Hb C", cells[1]:GetText())
+      assert.equals("x||Ty", cells[2]:GetText())
+      assert.truthy(cells[3]:GetText():find("Ev||cffil Guy", 1, true))
+      assert.truthy(cells[3]:GetText():find("O||r P", 1, true))
+      wow.fire(list[1], "OnClick")
+      assert.is_not_nil(buttonLabeled(ns.L["MW_ADOPT_ALL"]:format("Ev||cffil Guy")))
+    end)
+
     it("filters by name", function()
       SlashCmdList.GRUDGEFOREVER("")
       local search

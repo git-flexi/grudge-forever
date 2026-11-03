@@ -115,19 +115,22 @@ end
 
 -- Rows --------------------------------------------------------------------------------
 
+-- Names and reasons may come from other players: every one is escaped before it is shown.
+local Escape = Names.Escape
+
 local function byText(match)
   local parts = {}
-  if match.by and match.by ~= "" then parts[#parts + 1] = match.by end
+  if match.by and match.by ~= "" then parts[#parts + 1] = Escape(match.by) end
   local origin = match.entry.origin
-  if origin and origin ~= "" then parts[#parts + 1] = L["TOOLTIP_ADOPTED_FROM"]:format(origin) end
+  if origin and origin ~= "" then parts[#parts + 1] = L["TOOLTIP_ADOPTED_FROM"]:format(Escape(origin)) end
   return table.concat(parts, SEPARATOR)
 end
 
 local function playerCells(item)
   local matches = item.matches
   local first = matches[1]
-  local name = first.entry.name
-  local reason = first.entry.reason or ""
+  local name = Escape(first.entry.name)
+  local reason = Escape(first.entry.reason)
   local by = byText(first)
   if #matches > 1 then
     name = (state.expanded[item.key] and "- " or "+ ") .. name
@@ -142,7 +145,7 @@ end
 local function entryCells(item)
   local m = item.match
   local status = m.muted and L["TOOLTIP_MUTED"] or ""
-  return { "", m.entry.reason or "", byText(m), formatDate(m.entry.updated), status }, ENTRY_COLOR
+  return { "", Escape(m.entry.reason), byText(m), formatDate(m.entry.updated), status }, ENTRY_COLOR
 end
 
 local function onRowClick(item)
@@ -217,7 +220,7 @@ local function updateButtons()
   buttons.mute:SetText(L[(canMute and foreign.muted) and "MENU_UNMUTE" or "MENU_MUTE"])
   buttons.adopt:SetEnabled(foreignSel ~= nil and own == nil)
   buttons.adoptAll:SetEnabled(foreignSel ~= nil)
-  buttons.adoptAll:SetText(L["MW_ADOPT_ALL"]:format(foreignSel and foreignSel.by or "..."))
+  buttons.adoptAll:SetText(L["MW_ADOPT_ALL"]:format(foreignSel and Escape(foreignSel.by or "...") or "..."))
   updateSyncButton()
 end
 
@@ -239,7 +242,8 @@ end
 function actions.delete()
   local own = selectedPlayer()
   if not own then return end
-  StaticPopup_Show("GRUDGEFOREVER_DELETE", own.entry.name, nil, { list = own.entry.list, name = own.entry.name })
+  local data = { list = own.entry.list, name = own.entry.name }
+  StaticPopup_Show("GRUDGEFOREVER_DELETE", Escape(own.entry.name), nil, data)
 end
 
 function actions.mute()

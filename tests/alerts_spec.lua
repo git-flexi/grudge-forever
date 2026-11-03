@@ -48,6 +48,21 @@ describe("Alerts", function()
     it("does not interpret % in values", function()
       assert.equals("100% sure", ns.Alerts.Render("{reason}", { reason = "100% sure" }))
     end)
+
+    it("escapes pipes in values but not in the template", function()
+      local text = ns.Alerts.Render("|cffff0000{name}|r: {reason} ({by})",
+        { name = "A|Hx|h", reason = "|TInterface\\x:99|t", by = "B||C" })
+      assert.equals("|cffff0000A||Hx||h|r: ||TInterface\\x:99||t (B||C)", text)
+    end)
+  end)
+
+  describe("Fire escapes", function()
+    it("escapes remote reasons and creators in banner and chat", function()
+      settings.lists.friendly.chat = true
+      assert.is_true(alerts:Fire("friendly", "Thrall Earthson", { match("Ev|cffil", "x|ry") }, "whisper"))
+      assert.equals("Thrall Earthson " .. ns.L["TRIGGER_WHISPER"] .. ": x||ry (Ev||cffil)", calls.banner[1].text)
+      assert.equals(calls.banner[1].text, calls.chat[1])
+    end)
   end)
 
   describe("Summarize", function()
