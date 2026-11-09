@@ -12,7 +12,7 @@ Mark players you never want to group with again (*Blacklist*, your own faction) 
 ## 📦 Installation
 
 1. Download the latest `GrudgeForever-<version>.zip` from [Releases](https://github.com/git-flexi/grudge-forever/releases).
-2. Unzip it into the `_forever_/Interface/AddOns` folder of your WoW installation (not `_retail_` or `_classic_`), so that `_forever_/Interface/AddOns/GrudgeForever/GrudgeForever.toc` exists. Watch out for a doubled folder such as `AddOns/GrudgeForever-0.1.0/GrudgeForever/`: then the game does not list the addon.
+2. Unzip it into the `_forever_/Interface/AddOns` folder of your WoW installation (not `_retail_` or `_classic_`), so that `_forever_/Interface/AddOns/GrudgeForever/GrudgeForever.toc` exists. Watch out for a doubled folder such as `AddOns/GrudgeForever-<version>/GrudgeForever/`: then the game does not list the addon.
 3. Start the game and make sure GrudgeForever is enabled in the AddOns list.
 4. Turn on **enemy nameplates** (`Ctrl+V`) — on-sight alerts rely on them. If they are off, GrudgeForever tells you once in chat.
 
@@ -125,7 +125,7 @@ Du markierst Spieler, mit denen du nie wieder spielen willst (*Blacklist*, eigen
 ### 📦 Installation
 
 1. Die neueste `GrudgeForever-<Version>.zip` unter [Releases](https://github.com/git-flexi/grudge-forever/releases) herunterladen.
-2. In den Ordner `_forever_/Interface/AddOns` der WoW-Installation entpacken (nicht `_retail_` oder `_classic_`), sodass `_forever_/Interface/AddOns/GrudgeForever/GrudgeForever.toc` existiert. Achtung bei doppelten Ordnern wie `AddOns/GrudgeForever-0.1.0/GrudgeForever/`: Dann zeigt das Spiel das Addon nicht an.
+2. In den Ordner `_forever_/Interface/AddOns` der WoW-Installation entpacken (nicht `_retail_` oder `_classic_`), sodass `_forever_/Interface/AddOns/GrudgeForever/GrudgeForever.toc` existiert. Achtung bei doppelten Ordnern wie `AddOns/GrudgeForever-<version>/GrudgeForever/`: Dann zeigt das Spiel das Addon nicht an.
 3. Spiel starten und prüfen, dass GrudgeForever in der Addon-Liste aktiv ist.
 4. **Feindliche Namensplaketten** einschalten (`Strg+V`) – die Sicht-Warnung braucht sie. Sind sie aus, weist GrudgeForever einmalig im Chat darauf hin.
 
