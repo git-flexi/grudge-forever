@@ -497,6 +497,38 @@ describe("Addon load", function()
       assert.equals("sylvanas windrunner", items[1].key)
     end)
 
+    -- The edit dialog is created after the main window, so its buttons come last.
+    local function lastButtonLabeled(text)
+      local found
+      for _, frame in ipairs(wow.frames) do
+        if frame:GetText() == text and frame:GetScript("OnClick") then found = frame end
+      end
+      return found
+    end
+
+    it("deletes the edited own entry from the edit dialog after confirming", function()
+      local popup
+      _G.StaticPopup_Show = function(which, text, _, data) popup = { which = which, text = text, data = data } end
+      SlashCmdList.GRUDGEFOREVER("")
+      wow.fire(rows()[2], "OnClick") -- Thrall Earthson, own entry
+      wow.fire(buttonLabeled(ns.L["MW_EDIT"]), "OnClick")
+      local dialog = frameNamed("GrudgeForeverEditDialog")
+      local delete = lastButtonLabeled(ns.L["MW_DELETE"])
+      assert.is_true(delete:IsShown())
+
+      wow.fire(delete, "OnClick")
+      assert.equals("GRUDGEFOREVER_DELETE", popup.which)
+      assert.equals("Thrall Earthson", popup.text)
+      StaticPopupDialogs[popup.which].OnAccept(nil, popup.data)
+      local entry = ns.Core.store:GetOwnEntry("friendly", "Thrall Earthson")
+      assert.is_true(entry == nil or entry.deleted)
+      assert.is_false(dialog:IsShown())
+
+      wow.fire(buttonLabeled(ns.L["MW_ADD"]), "OnClick")
+      assert.is_true(dialog:IsShown())
+      assert.is_false(delete:IsShown())
+    end)
+
     it("opens the edit, export and import dialogs from its buttons", function()
       SlashCmdList.GRUDGEFOREVER("")
       wow.fire(rows()[2], "OnClick")

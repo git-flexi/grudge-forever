@@ -32,6 +32,25 @@ local function save()
   frame:Hide()
 end
 
+local function ensureDeletePopup()
+  if StaticPopupDialogs.GRUDGEFOREVER_DELETE then return end
+  StaticPopupDialogs.GRUDGEFOREVER_DELETE = {
+    text = L["MW_DELETE_CONFIRM"], button1 = L["MW_DELETE"], button2 = L["BTN_CANCEL"],
+    OnAccept = function(_, data)
+      ns.Core.Change(function(store) store:Delete(data.list, data.name) end)
+      local editing = state.editing
+      if frame and editing and editing.list == data.list and editing.name == data.name then frame:Hide() end
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true,
+  }
+end
+
+-- Asks before deleting an own entry; closes the dialog if it shows that entry.
+function EditDialog.ConfirmDelete(list, name)
+  ensureDeletePopup()
+  StaticPopup_Show("GRUDGEFOREVER_DELETE", Names.Escape(name), nil, { list = list, name = name })
+end
+
 local function label(text, y)
   local fs = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   fs:SetPoint("TOPLEFT", LABEL_X, y)
@@ -106,6 +125,12 @@ local function create()
 
   button(L["BTN_CANCEL"], -8, function() frame:Hide() end)
   button(L["BTN_SAVE"], -108, save)
+  frame.delete = button(L["MW_DELETE"], 0, function()
+    local editing = state.editing
+    if editing then EditDialog.ConfirmDelete(editing.list, editing.name) end
+  end)
+  frame.delete:ClearAllPoints()
+  frame.delete:SetPoint("BOTTOMLEFT", 8, 6)
 end
 
 -- name: prefilled name (fixed when editing); list: preselected list (default friendly);
@@ -126,6 +151,7 @@ function EditDialog.Open(name, list, entry, reason)
   frame.name:SetEnabled(entry == nil)
   frame.reason:SetText(entry and entry.reason or reason or "")
   frame.error:SetText("")
+  frame.delete:SetShown(entry ~= nil)
   frame.list:GenerateMenu()
   frame:Show()
   if entry or name then frame.reason:SetFocus() else frame.name:SetFocus() end

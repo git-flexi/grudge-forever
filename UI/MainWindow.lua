@@ -242,8 +242,7 @@ end
 function actions.delete()
   local own = selectedPlayer()
   if not own then return end
-  local data = { list = own.entry.list, name = own.entry.name }
-  StaticPopup_Show("GRUDGEFOREVER_DELETE", Escape(own.entry.name), nil, data)
+  ns.UI.EditDialog.ConfirmDelete(own.entry.list, own.entry.name)
 end
 
 function actions.mute()
@@ -383,14 +382,6 @@ local function create()
   createControls()
   createList()
   createTabs()
-
-  StaticPopupDialogs.GRUDGEFOREVER_DELETE = {
-    text = L["MW_DELETE_CONFIRM"], button1 = L["MW_DELETE"], button2 = L["BTN_CANCEL"],
-    OnAccept = function(_, data)
-      ns.Core.Change(function(store) store:Delete(data.list, data.name) end)
-    end,
-    timeout = 0, whileDead = true, hideOnEscape = true,
-  }
 
   -- the sync cooldown counts down while the window is open
   local elapsed = 0
