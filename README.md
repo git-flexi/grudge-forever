@@ -48,7 +48,7 @@ Buttons: **Add**, **Edit**, **Delete** (own entries only), **Adopt** (copy someo
 Game menu → Options → AddOns → GrudgeForever (or `/gf config`):
 
 - **General:** sync mode (Automatic / Manual / Off), unlock and move the alert banner, reset its position, diagnostic mode
-- **Per list:** enabled, sound (None, Raid warning, Minimap ping or any LibSharedMedia sound — with a **Preview** button), icon (skull, cross, exclamation mark or a custom texture path), message text with the placeholders `{name}` `{reason}` `{by}` `{trigger}`, banner on/off, chat on/off, warning cooldown (default 300 s)
+- **Per list:** enabled, sound (None, Raid warning, Minimap ping or any LibSharedMedia sound — with a **Preview** button), icon (skull, cross, exclamation mark or a custom texture path), message text with the placeholders `{list}` `{name}` `{reason}` `{by}` `{trigger}`, banner on/off, chat on/off (the chat line starts with a red WARNING and shows name, reason and creator in color), warning cooldown (default 300 s)
 
 **When you get warned**
 
@@ -161,7 +161,7 @@ Buttons: **Hinzufügen**, **Bearbeiten**, **Löschen** (nur eigene Einträge), *
 Spielmenü → Optionen → AddOns → GrudgeForever (oder `/gf config`):
 
 - **Allgemein:** Abgleich-Modus (Automatisch / Manuell / Aus), Banner entsperren und verschieben, Position zurücksetzen, Diagnosemodus
-- **Pro Liste:** aktiviert, Sound (Kein Sound, Schlachtzugswarnung, Minimap-Ping oder jeder LibSharedMedia-Sound – mit **Vorschau**-Knopf), Symbol (Totenkopf, Kreuz, Ausrufezeichen oder eigener Texturpfad), Nachrichtentext mit den Platzhaltern `{name}` `{grund}` `{von}` `{anlass}`, Banner an/aus, Chat an/aus, Wartezeit zwischen Warnungen (Standard 300 s)
+- **Pro Liste:** aktiviert, Sound (Kein Sound, Schlachtzugswarnung, Minimap-Ping oder jeder LibSharedMedia-Sound – mit **Vorschau**-Knopf), Symbol (Totenkopf, Kreuz, Ausrufezeichen oder eigener Texturpfad), Nachrichtentext mit den Platzhaltern `{liste}` `{name}` `{grund}` `{von}` `{anlass}`, Banner an/aus, Chat an/aus (die Chatzeile beginnt mit einem roten WARNUNG und zeigt Name, Grund und Ersteller farbig), Wartezeit zwischen Warnungen (Standard 300 s)
 
 **Wann gewarnt wird**
 

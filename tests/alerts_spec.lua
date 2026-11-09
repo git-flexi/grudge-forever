@@ -61,7 +61,46 @@ describe("Alerts", function()
       settings.lists.friendly.chat = true
       assert.is_true(alerts:Fire("friendly", "Thrall Earthson", { match("Ev|cffil", "x|ry") }, "whisper"))
       assert.equals("Thrall Earthson " .. ns.L["TRIGGER_WHISPER"] .. ": x||ry (Ev||cffil)", calls.banner[1].text)
-      assert.equals(calls.banner[1].text, calls.chat[1])
+      assert.truthy(calls.chat[1]:find("x||ry", 1, true))
+      assert.truthy(calls.chat[1]:find("Ev||cffil", 1, true))
+    end)
+  end)
+
+  describe("chat colors", function()
+    local function one() return { match("Jaina", "pöbelt") } end
+
+    local function plain(text)
+      return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+    end
+
+    it("wraps filled values in their color and leaves others plain", function()
+      local text = ns.Alerts.Render("{name}: {reason} ({by})", { name = "A", reason = "r|x", by = "B" },
+        { name = "ffffd100", reason = "ffffffff" })
+      assert.equals("|cffffd100A|r: |cffffffffr||x|r (B)", text)
+    end)
+
+    it("starts the chat line with a colored warning and colors the player name", function()
+      settings.lists.friendly.chat = true
+      assert.is_true(alerts:Fire("friendly", "Thrall Earthson", one(), "group"))
+      local line = calls.chat[1]
+      assert.equals(1, line:find(ns.L["CHAT_WARNING"], 1, true))
+      assert.truthy(line:find("|cffffd100Thrall Earthson|r", 1, true))
+      assert.equals(plain(ns.L["CHAT_WARNING"]) .. calls.banner[1].text, plain(line))
+    end)
+
+    it("fills the list label and reads like the default sentence", function()
+      settings.lists.friendly.chat = true
+      settings.lists.friendly.text = ns.L["DEFAULT_TEXT"]
+      assert.is_true(alerts:Fire("friendly", "Spitz Ohr", { match("Sacricola Umbrae", "Blabla") }, "group"))
+      assert.equals("Blacklisted player Spitz Ohr is in your group! Reason: Blabla (by Sacricola Umbrae)",
+        calls.banner[1].text)
+      assert.equals("WARNING: " .. calls.banner[1].text, plain(calls.chat[1]))
+    end)
+
+    it("labels enemies as KOS targets, also through the German alias", function()
+      settings.lists.enemy.text = "{liste} {name}"
+      assert.is_true(alerts:Fire("enemy", "Garrosh Hellscream", one(), "sight"))
+      assert.equals(ns.L["ALERT_LIST_ENEMY"] .. " Garrosh Hellscream", calls.banner[1].text)
     end)
   end)
 
@@ -129,7 +168,8 @@ describe("Alerts", function()
     it("uses the localized default text when none is set", function()
       settings.lists.friendly.text = nil
       alerts:Fire("friendly", "Thrall Earthson", one(), "invite")
-      assert.equals("Thrall Earthson is inviting you! pöbelt (by Jaina)", calls.banner[1].text)
+      assert.equals("Blacklisted player Thrall Earthson is inviting you! Reason: pöbelt (by Jaina)",
+        calls.banner[1].text)
     end)
 
     it("localizes trigger text and default template in German", function()
@@ -142,7 +182,8 @@ describe("Alerts", function()
         out = { banner = function(_, text) calls.banner[#calls.banner + 1] = { text = text } end },
       })
       a:Fire("friendly", "Thrall Earthson", one(), "group")
-      assert.equals("Thrall Earthson ist in deiner Gruppe! pöbelt (von Jaina)", calls.banner[1].text)
+      assert.equals("Blacklist-Spieler Thrall Earthson ist in deiner Gruppe! Grund: pöbelt (von Jaina)",
+        calls.banner[1].text)
     end)
 
     it("applies a cooldown per player of the configured length", function()
@@ -213,7 +254,9 @@ describe("Alerts", function()
       settings.lists.friendly.sound = "none"
       assert.is_true(alerts:Fire("friendly", "Thrall Earthson", one(), "whisper"))
       assert.equals(0, #calls.banner)
-      assert.same({ "Thrall Earthson is whispering you: pöbelt (Jaina)" }, calls.chat)
+      assert.equals(1, #calls.chat)
+      assert.equals("WARNING: Thrall Earthson is whispering you: pöbelt (Jaina)",
+        (calls.chat[1]:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")))
       assert.equals(0, #calls.sound)
     end)
 

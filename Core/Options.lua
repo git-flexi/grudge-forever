@@ -33,6 +33,12 @@ local function fill(target, defaults)
   end
 end
 
+-- Default texts of earlier versions (both locales): still unchanged, they follow the new default.
+Options.LEGACY_TEXTS = {
+  ["{name} {trigger}! {reason} (by {by})"] = true,
+  ["{name} {anlass}! {grund} (von {von})"] = true,
+}
+
 local function fixCooldown(list)
   local c = list.cooldown
   if type(c) ~= "number" or c ~= c or c < Options.COOLDOWN_MIN or c > Options.COOLDOWN_MAX then
@@ -47,7 +53,10 @@ function Options.Apply(sv)
 
   if not SYNC_MODES[settings.syncMode] then settings.syncMode = "auto" end
   for _, list in pairs(settings.lists) do
-    if type(list) == "table" then fixCooldown(list) end
+    if type(list) == "table" then
+      fixCooldown(list)
+      if Options.LEGACY_TEXTS[list.text] then list.text = L["DEFAULT_TEXT"] end
+    end
   end
   return settings
 end

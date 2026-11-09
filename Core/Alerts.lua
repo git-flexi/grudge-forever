@@ -21,17 +21,34 @@ local TRIGGER_KEYS = {
   sight = "TRIGGER_SIGHT",
 }
 
+local LIST_KEYS = { [Const.LIST_FRIENDLY] = "ALERT_LIST_FRIENDLY", [Const.LIST_ENEMY] = "ALERT_LIST_ENEMY" }
+
+-- Chat colors per placeholder (AARRGGBB); placeholders without one stay in the chat color.
+Alerts.CHAT_COLORS = { list = "ffff8040", name = "ffffd100", reason = "ffffffff", by = "ff40c0ff" }
+
 -- Placeholders: English names plus the German aliases used by the German default text.
-local ALIASES = { grund = "reason", von = "by", anlass = "trigger" }
+local ALIASES = { grund = "reason", von = "by", anlass = "trigger", liste = "list" }
 
 -- Values may come from other players: their pipes are escaped, the (own) template is used as written.
-function Alerts.Render(template, vars)
+-- colors (optional) maps a placeholder to the color its value is shown in.
+function Alerts.Render(template, vars, colors)
   return (template:gsub("{(%w+)}", function(token)
     local key = token:lower()
-    local value = vars[ALIASES[key] or key]
+    key = ALIASES[key] or key
+    local value = vars[key]
     if value == nil then return nil end -- unknown placeholders stay as written
-    return Names.Escape(value)
+    local text = Names.Escape(value)
+    local color = colors and colors[key]
+    if color and text ~= "" then return "|c" .. color .. text .. "|r" end
+    return text
   end))
+end
+
+-- Returns the banner text and the colored chat line for a list's settings.
+function Alerts.Compose(list, s, vars)
+  local template = (s.text and s.text ~= "") and s.text or L["DEFAULT_TEXT"]
+  vars.list = L[LIST_KEYS[list] or list]
+  return Alerts.Render(template, vars), L["CHAT_WARNING"] .. Alerts.Render(template, vars, Alerts.CHAT_COLORS)
 end
 
 -- Joins distinct non-empty values, at most MAX_SHOWN, followed by " +N" for the rest.
@@ -105,7 +122,7 @@ function Alert:Fire(list, displayName, matches, trigger)
   if trigger == "group" then self.groupSeen[id] = true end
 
   local reason, by = Alerts.Summarize(matches)
-  local text = Alerts.Render((s.text and s.text ~= "") and s.text or L["DEFAULT_TEXT"], {
+  local text, chatText = Alerts.Compose(list, s, {
     name = displayName, reason = reason, by = by, trigger = L[TRIGGER_KEYS[trigger] or trigger],
   })
 
@@ -113,7 +130,7 @@ function Alert:Fire(list, displayName, matches, trigger)
   if s.banner and out.banner then
     out.banner(Alerts.ICONS[s.icon] or s.icon, text)
   end
-  if s.chat and out.chat then out.chat(text) end
+  if s.chat and out.chat then out.chat(chatText) end
   if out.sound then
     local resolved = Alerts.ResolveSound(s.sound)
     if resolved then out.sound(resolved) end

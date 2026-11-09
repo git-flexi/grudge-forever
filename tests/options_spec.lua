@@ -37,6 +37,20 @@ describe("Options", function()
   end)
 
   describe("Apply", function()
+    it("replaces the old default warning texts with the new default and keeps custom texts", function()
+      local sv = { settings = { lists = {
+        friendly = { text = "{name} {trigger}! {reason} (by {by})" },
+        enemy = { text = "{name} {anlass}! {grund} (von {von})" },
+      } } }
+      ns.Options.Apply(sv)
+      assert.equals(ns.L.DEFAULT_TEXT, sv.settings.lists.friendly.text)
+      assert.equals(ns.L.DEFAULT_TEXT, sv.settings.lists.enemy.text)
+
+      sv.settings.lists.enemy.text = "{name} is here"
+      ns.Options.Apply(sv)
+      assert.equals("{name} is here", sv.settings.lists.enemy.text)
+    end)
+
     it("fills an empty saved table with the defaults and returns sv.settings", function()
       local sv = {}
       local settings = ns.Options.Apply(sv)

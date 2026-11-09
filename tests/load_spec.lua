@@ -48,8 +48,10 @@ describe("Addon load", function()
     wow.fire(eventFrame, "OnEvent", event, ...)
   end
 
+  -- compares without color codes
   local function chatContains(text)
     for _, line in ipairs(wow.chat) do
+      line = line:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
       if line:find(text, 1, true) then return true end
     end
     return false
@@ -159,7 +161,7 @@ describe("Addon load", function()
     login()
     ns.Core.store:AddOrUpdate("friendly", "Thrall Earthson", "pöbelt")
     fire("CHAT_MSG_WHISPER", "hi", "Thrall-Earthson")
-    assert.is_true(chatContains("Thrall Earthson is whispering you! pöbelt"))
+    assert.is_true(chatContains("WARNING: Blacklisted player Thrall Earthson is whispering you! Reason: pöbelt"))
     assert.equals(1, #wow.sounds)
   end)
 
@@ -168,7 +170,7 @@ describe("Addon load", function()
     ns.Core.store:AddOrUpdate("enemy", "Garrosh Hellscream", "gankt")
     wow.units.nameplate1 = { name = "Garrosh", surname = "Hellscream", player = true, faction = "Horde" }
     fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
-    assert.is_true(chatContains("Garrosh Hellscream is nearby! gankt"))
+    assert.is_true(chatContains("WARNING: KOS target Garrosh Hellscream is nearby! Reason: gankt"))
   end)
 
   it("warns once about a listed player in the group, but not about the own character", function()
