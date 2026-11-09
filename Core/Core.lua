@@ -11,6 +11,7 @@ local HELLO_TIMEOUT = 10 -- seconds after login to say hello when no roster upda
 local GAME_EVENTS = {
   "CHAT_MSG_WHISPER", "PARTY_INVITE_REQUEST", "GROUP_ROSTER_UPDATE", "NAME_PLATE_UNIT_ADDED",
   "PLAYER_TARGET_CHANGED", "UPDATE_MOUSEOVER_UNIT", "GUILD_ROSTER_UPDATE", "PLAYER_GUILD_UPDATE",
+  "IGNORELIST_UPDATE",
 }
 
 -- The current guild (or none) is known and set in the store. Until then the store holds the guild
@@ -192,6 +193,23 @@ local function hintNameplates(sv)
   Core.Print(L["HINT_NAMEPLATES"])
 end
 
+-- Watches the client's ignore calls (target menu, /ignore, friends frame) for new ignores.
+local function installIgnoreWatch(store)
+  local friends = C_FriendList
+  if not (friends and hooksecurefunc and friends.IsOnIgnoredList) then return end
+  Core.ignoreWatch = ns.IgnoreWatch.New({
+    store = store, change = Core.Change, print = Core.Print,
+    isIgnored = function(name)
+      local ok, ignored = pcall(friends.IsOnIgnoredList, name)
+      return ok and ignored == true
+    end,
+  })
+  local function onCall(name) Core.ignoreWatch:OnIgnoreCall(name) end
+  for _, fn in ipairs({ "AddIgnore", "AddOrDelIgnore" }) do
+    if friends[fn] then hooksecurefunc(friends, fn, onCall) end
+  end
+end
+
 local function onLogin(frame)
   if Core.ready then return end
   local sv, store = Core.sv, Core.store
@@ -229,6 +247,7 @@ local function onLogin(frame)
 
   ns.Tooltip.Install(store)
   ns.UnitMenu.Install(store)
+  installIgnoreWatch(store)
   ns.OptionsPanel.Register(sv.settings, {
     testAlert = Core.TestAlert, bannerLock = ns.Banner.SetLocked, bannerReset = ns.Banner.ResetPosition,
     syncModeChanged = Core.OnSyncModeChanged,
@@ -255,6 +274,9 @@ local events = {
   PLAYER_TARGET_CHANGED = function() Core.detect:OnUnit("target") end,
   UPDATE_MOUSEOVER_UNIT = function() Core.detect:OnUnit("mouseover") end,
   GUILD_ROSTER_UPDATE = onRoster,
+  IGNORELIST_UPDATE = function()
+    if Core.ignoreWatch then Core.ignoreWatch:OnIgnoreListUpdate() end
+  end,
   PLAYER_GUILD_UPDATE = function()
     updateGuild()
     if IsInGuild() then C_GuildInfo.GuildRoster() end

@@ -37,6 +37,10 @@ Always use first **and** last name — the full name is the list key. A reason c
 
 Right-click a player (target frame, party/raid frames, chat names, guild roster) for **Add to GrudgeForever...**. For players already on a list you get **Edit GrudgeForever entry...** (your own entries) or **Mute** / **Unmute** (other people's entries). Muting only affects you and is not shared.
 
+For a player of your own faction the dialog offers only the Blacklist. When you edit one of your entries, the dialog also has a **Delete** button.
+
+When you ignore a player (right-click menu, `/ignore` or the friends window), GrudgeForever puts them on your Blacklist with the reason *IgnoreList Import* and tells you in chat. Players that are already on your Blacklist keep their entry. Your existing ignore list cannot be imported, because the game only shows Battle.net accounts there, not character names.
+
 ## 📋 Main window
 
 Two tabs: **Own faction** (Blacklist) and **Enemy faction** (KOS). One row per player with reason, author, date and status; players listed by several people expand to show every entry. Filter **All entries** / **Only mine** and a name search.
@@ -149,6 +153,10 @@ Namen immer mit Vor- **und** Nachname angeben – der volle Name ist der Listen-
 ### 🖱️ Rechtsklick-Menü
 
 Im Rechtsklick-Menü eines Spielers (Zielrahmen, Gruppen-/Raidrahmen, Chatnamen, Gildenliste) gibt es **Zu GrudgeForever hinzufügen...**. Bei bereits gelisteten Spielern stattdessen **GrudgeForever-Eintrag bearbeiten...** (eigene Einträge) oder **Stumm schalten** / **Stumm aufheben** (Einträge anderer). Stummschalten gilt nur für dich und wird nicht geteilt.
+
+Bei Spielern der eigenen Fraktion bietet der Dialog nur die Blacklist an. Beim Bearbeiten eines eigenen Eintrags gibt es im Dialog zusätzlich einen **Löschen**-Knopf.
+
+Wenn du einen Spieler ignorierst (Rechtsklick-Menü, `/ignore` oder Freundesfenster), setzt GrudgeForever ihn mit dem Grund *IgnoreList Import* auf deine Blacklist und meldet das im Chat. Steht er schon auf deiner Blacklist, bleibt der Eintrag unverändert. Die bestehende Ignore-Liste lässt sich nicht übernehmen, weil das Spiel dort nur Battle.net-Konten zeigt, keine Charakternamen.
 
 ### 📋 Hauptfenster
 

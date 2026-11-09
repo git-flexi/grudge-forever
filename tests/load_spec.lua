@@ -329,6 +329,27 @@ describe("Addon load", function()
     assert.is_true(chatContains(ns.L["TEST_REASON"]))
   end)
 
+  it("puts a player the user ignores on the Blacklist", function()
+    local ignoredNames = {}
+    _G.C_FriendList = {
+      AddOrDelIgnore = function(name) ignoredNames[name] = not ignoredNames[name] end,
+      IsOnIgnoredList = function(name) return ignoredNames[name] == true end,
+    }
+    _G.hooksecurefunc = function(t, key, fn)
+      local orig = t[key]
+      t[key] = function(...)
+        orig(...)
+        fn(...)
+      end
+    end
+    login()
+    C_FriendList.AddOrDelIgnore("Spitz-Ohr")
+    fire("IGNORELIST_UPDATE")
+    local entry = ns.Core.store:GetOwnEntry("friendly", "Spitz Ohr")
+    assert.equals("IgnoreList Import", entry.reason)
+    assert.is_true(chatContains(ns.L["IGNORE_ADDED"]:format("Spitz Ohr")))
+  end)
+
   it("hints at disabled enemy nameplates once per account", function()
     wow.cvars.nameplateShowEnemies = false
     login()

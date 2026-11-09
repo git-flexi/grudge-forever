@@ -14,6 +14,7 @@ L["DEFAULT_TEXT"] = "{list} {name} {trigger}! Reason: {reason} (by {by})"
 L["ALERT_LIST_FRIENDLY"] = "Blacklisted player"
 L["ALERT_LIST_ENEMY"] = "KOS target"
 L["CHAT_WARNING"] = "|cffff2020WARNING:|r "
+L["IGNORE_ADDED"] = "Ignored %s: added to your Blacklist."
 L["BANNER_PLACEHOLDER"] = "Drag to move the warning banner"
 L["DEBUG_PREFIX"] = "[GrudgeForever debug]"
 

@@ -13,7 +13,7 @@ read_globals = {
   "IsInGroup", "IsInRaid", "GetNumGroupMembers", "PlaySound", "PlaySoundFile", "DEFAULT_CHAT_FRAME", "date",
   "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
   "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants", "StaticPopup_Show",
-  "geterrorhandler",
+  "geterrorhandler", "C_FriendList", "hooksecurefunc",
 }
 
 -- addon-owned globals, plus client tables the addon registers into
@@ -36,5 +36,6 @@ files["tests/**"] = {
     "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
     "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants",
     "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "geterrorhandler", "Settings",
+    "C_FriendList",
   },
 }
