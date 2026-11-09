@@ -2,8 +2,9 @@
 ## Title: GrudgeForever
 ## Notes: Mark players you never want to group with again, plus enemy KOS targets - get warned when they show up, and share the lists with your guild.
 ## Notes-deDE: Markiere Spieler, mit denen du nie wieder spielen willst, und feindliche KOS-Ziele - werde gewarnt, wenn sie auftauchen, und teile die Listen mit deiner Gilde.
-## Version: 0.1.1
+## Version: 0.2.0
 ## SavedVariables: GrudgeForeverDB
+## IconTexture: Interface\AddOns\GrudgeForever\Media\icon
 
 embeds.xml
 
@@ -28,4 +29,5 @@ UI\UnitMenu.lua
 UI\EditDialog.lua
 UI\TextDialog.lua
 UI\MainWindow.lua
+UI\MinimapButton.lua
 Core\Core.lua
