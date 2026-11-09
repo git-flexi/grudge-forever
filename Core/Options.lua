@@ -17,7 +17,7 @@ end
 -- Read at call time so the active locale decides the default text.
 function Options.Defaults()
   return {
-    syncMode = "auto", debug = false, banner = nil,
+    syncMode = "auto", debug = false, banner = nil, textsUpdated = true,
     lists = { friendly = listDefaults("exclamation"), enemy = listDefaults("skull") },
   }
 end
@@ -49,13 +49,15 @@ end
 function Options.Apply(sv)
   sv.settings = sv.settings or {}
   local settings = sv.settings
+  -- old default texts follow the new default once; chosen again later, they stay
+  local updateTexts = not settings.textsUpdated
   fill(settings, Options.Defaults())
 
   if not SYNC_MODES[settings.syncMode] then settings.syncMode = "auto" end
   for _, list in pairs(settings.lists) do
     if type(list) == "table" then
       fixCooldown(list)
-      if Options.LEGACY_TEXTS[list.text] then list.text = L["DEFAULT_TEXT"] end
+      if updateTexts and Options.LEGACY_TEXTS[list.text] then list.text = L["DEFAULT_TEXT"] end
     end
   end
   return settings

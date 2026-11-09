@@ -49,6 +49,11 @@ describe("Options", function()
       sv.settings.lists.enemy.text = "{name} is here"
       ns.Options.Apply(sv)
       assert.equals("{name} is here", sv.settings.lists.enemy.text)
+
+      -- only once: the old text chosen on purpose later stays
+      sv.settings.lists.friendly.text = "{name} {trigger}! {reason} (by {by})"
+      ns.Options.Apply(sv)
+      assert.equals("{name} {trigger}! {reason} (by {by})", sv.settings.lists.friendly.text)
     end)
 
     it("fills an empty saved table with the defaults and returns sv.settings", function()
