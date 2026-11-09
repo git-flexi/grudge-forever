@@ -329,6 +329,12 @@ describe("Addon load", function()
     assert.is_true(chatContains(ns.L["TEST_REASON"]))
   end)
 
+  it("shows the minimap button through the embedded LibDBIcon", function()
+    login()
+    assert.is_true(LibStub("LibDBIcon-1.0"):IsRegistered("GrudgeForever"))
+    assert.same({ hide = false }, GrudgeForeverDB.settings.minimap)
+  end)
+
   it("puts a player the user ignores on the Blacklist", function()
     local ignoredNames = {}
     _G.C_FriendList = {

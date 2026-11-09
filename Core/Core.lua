@@ -248,9 +248,12 @@ local function onLogin(frame)
   ns.Tooltip.Install(store)
   ns.UnitMenu.Install(store)
   installIgnoreWatch(store)
+  ns.MinimapButton.Install(sv.settings, {
+    toggleWindow = function() ns.UI.MainWindow.Toggle() end, openOptions = function() ns.OptionsPanel.Open() end,
+  })
   ns.OptionsPanel.Register(sv.settings, {
     testAlert = Core.TestAlert, bannerLock = ns.Banner.SetLocked, bannerReset = ns.Banner.ResetPosition,
-    syncModeChanged = Core.OnSyncModeChanged,
+    syncModeChanged = Core.OnSyncModeChanged, minimapShown = ns.MinimapButton.SetShown,
   })
 
   Core.ready = true

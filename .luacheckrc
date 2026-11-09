@@ -36,6 +36,6 @@ files["tests/**"] = {
     "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
     "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants",
     "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "geterrorhandler", "Settings",
-    "C_FriendList",
+    "C_FriendList", "Minimap",
   },
 }

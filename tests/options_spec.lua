@@ -15,6 +15,7 @@ describe("Options", function()
       assert.equals("auto", d.syncMode)
       assert.is_false(d.debug)
       assert.is_nil(d.banner)
+      assert.same({ hide = false }, d.minimap)
       assert.same({ enabled = true, sound = "raidwarning", icon = "exclamation", text = ns.L.DEFAULT_TEXT,
         banner = true, chat = true, cooldown = 300 }, d.lists.friendly)
       assert.same({ enabled = true, sound = "raidwarning", icon = "skull", text = ns.L.DEFAULT_TEXT,

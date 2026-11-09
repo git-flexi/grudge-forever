@@ -24,7 +24,7 @@ local GLOBALS = {
   "hooksecurefunc", "securecallfunction", "GetTime", "GetFramerate", "ChatThrottleLib", "C_UIFileAsset",
   "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
   "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants",
-  "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames",
+  "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "Minimap",
 }
 
 -- Libraries that run as plain Lua, loaded through the real LibStub.
@@ -203,6 +203,13 @@ local STATEFUL = {
   SetID = function(self, id) self._state.id = id end,
   GetID = function(self) return self._state.id or 0 end,
   GetCenter = function() return nil end,
+  -- parents are tracked for frames and textures (LibDBIcon reads the button through its icon)
+  GetParent = function(self) return self._state.parent end,
+  CreateTexture = function(self)
+    local texture = setmetatable({ _state = { scripts = {}, events = {}, text = "", shown = false, parent = self } },
+      getmetatable(self))
+    return texture
+  end,
   SetEnabled = function(self, v) self._state.enabled = v and true or false end,
   IsEnabled = function(self) return self._state.enabled ~= false end,
 }
@@ -225,8 +232,9 @@ end
 -- the bundled libraries and UI templates use.
 function wow.installUI()
   wow.frames = {}
-  _G.CreateFrame = function(_, name)
+  _G.CreateFrame = function(_, name, parent)
     local frame = newProxy(name)
+    frame._state.parent = parent
     table.insert(wow.frames, frame)
     return frame
   end
@@ -248,6 +256,7 @@ function wow.installUI()
   _G.StaticPopupDialogs = {}
   _G.StaticPopup_Show = stub
   _G.UISpecialFrames = {}
+  _G.Minimap = newProxy("Minimap")
 end
 
 -- The recorded frame that registered the event, or nil.

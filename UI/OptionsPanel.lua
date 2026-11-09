@@ -230,6 +230,11 @@ local function build(settings, callbacks)
   end)
   y = y - ROW_HEIGHT
 
+  checkbox(content, L["OPT_MINIMAP"], y, function() return not settings.minimap.hide end, function(v)
+    if callbacks.minimapShown then callbacks.minimapShown(v) end
+  end, refreshers)
+  y = y - ROW_HEIGHT
+
   checkbox(content, L["OPT_DEBUG"], y, function() return settings.debug end,
     function(v) settings.debug = v end, refreshers)
   y = y - ROW_HEIGHT - 16
@@ -253,7 +258,8 @@ local function build(settings, callbacks)
 end
 
 -- settingsTable is the live saved settings; controls write straight into it.
--- callbacks = { testAlert = fn(list), bannerLock = fn(bool), bannerReset = fn(), syncModeChanged = fn(mode) }
+-- callbacks = { testAlert = fn(list), bannerLock = fn(bool), bannerReset = fn(), syncModeChanged = fn(mode),
+--   minimapShown = fn(bool) }
 function OptionsPanel.Register(settingsTable, callbacks)
   if not Settings or not Settings.RegisterCanvasLayoutCategory then return nil end
   if panelBuilt then return category end

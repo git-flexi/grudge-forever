@@ -17,7 +17,7 @@ end
 -- Read at call time so the active locale decides the default text.
 function Options.Defaults()
   return {
-    syncMode = "auto", debug = false, banner = nil, textsUpdated = true,
+    syncMode = "auto", debug = false, banner = nil, textsUpdated = true, minimap = { hide = false },
     lists = { friendly = listDefaults("exclamation"), enemy = listDefaults("skull") },
   }
 end
