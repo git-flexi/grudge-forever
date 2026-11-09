@@ -134,8 +134,9 @@ local function create()
 end
 
 -- name: prefilled name (fixed when editing); list: preselected list (default friendly);
--- entry: an own entry to edit; reason: prefilled reason for a new entry.
-function EditDialog.Open(name, list, entry, reason)
+-- entry: an own entry to edit; reason: prefilled reason for a new entry;
+-- fixed: the list cannot be changed (a player of the own faction belongs on the Blacklist).
+function EditDialog.Open(name, list, entry, reason, fixed)
   if not (ns.Core and ns.Core.ready) then return end
   if not frame then create() end
   if not entry and name and list then
@@ -152,6 +153,7 @@ function EditDialog.Open(name, list, entry, reason)
   frame.reason:SetText(entry and entry.reason or reason or "")
   frame.error:SetText("")
   frame.delete:SetShown(entry ~= nil)
+  frame.list:SetEnabled(not fixed)
   frame.list:GenerateMenu()
   frame:Show()
   if entry or name then frame.reason:SetFocus() else frame.name:SetFocus() end

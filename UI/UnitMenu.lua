@@ -30,15 +30,27 @@ function UnitMenu.NameFromContext(contextData, currentChar)
   return name
 end
 
+-- Both factions (unit's, own) when both are known and readable, else nil.
+local function factions(unit)
+  if unit == nil or Names.IsSecret(unit) then return nil end
+  local theirs, mine = UnitFactionGroup(unit), UnitFactionGroup("player")
+  if type(theirs) ~= "string" or type(mine) ~= "string" then return nil end
+  if Names.IsSecret(theirs) or Names.IsSecret(mine) then return nil end
+  return theirs, mine
+end
+
 -- Enemy faction means both factions are known and differ.
 local function isOtherFaction(unit)
-  if unit == nil or Names.IsSecret(unit) then return false end
-  local theirs, mine = UnitFactionGroup(unit), UnitFactionGroup("player")
-  if type(theirs) ~= "string" or type(mine) ~= "string" then return false end
-  if Names.IsSecret(theirs) or Names.IsSecret(mine) then return false end
-  return theirs ~= mine
+  local theirs, mine = factions(unit)
+  return theirs ~= nil and theirs ~= mine
 end
 UnitMenu.IsOtherFaction = isOtherFaction
+
+-- Own faction means both factions are known and equal.
+local function isOwnFaction(unit)
+  local theirs, mine = factions(unit)
+  return theirs ~= nil and theirs == mine
+end
 
 -- Returns { {labelKey, kind, list} ... }: "add", "edit" (own entry) or "mute"/"unmute" (foreign entries only).
 function UnitMenu.Actions(store, name, tag, unit)
@@ -66,6 +78,10 @@ function UnitMenu.Actions(store, name, tag, unit)
   end
   if #actions > 0 then return actions end
 
+  if tag ~= "MENU_UNIT_ENEMY_PLAYER" and isOwnFaction(unit) then
+    -- a player of the own faction belongs on the Blacklist only
+    return { { labelKey = "MENU_ADD", kind = "add", list = Const.LIST_FRIENDLY, fixed = true } }
+  end
   local list = (tag == "MENU_UNIT_ENEMY_PLAYER" or isOtherFaction(unit)) and Const.LIST_ENEMY or Const.LIST_FRIENDLY
   return { { labelKey = "MENU_ADD", kind = "add", list = list } }
 end
@@ -78,7 +94,7 @@ local function run(store, name, action)
   local dialog = ns.UI and ns.UI.EditDialog
   if not dialog or not dialog.Open then return end
   local entry = action.kind == "edit" and store:GetOwnEntry(action.list, name) or nil
-  dialog.Open(name, action.list, entry)
+  dialog.Open(name, action.list, entry, nil, action.fixed)
 end
 
 function UnitMenu.Install(store)

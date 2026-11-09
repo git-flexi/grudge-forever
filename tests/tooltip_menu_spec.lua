@@ -227,6 +227,16 @@ describe("Tooltip and UnitMenu", function()
       assert.equals("friendly", ns.UnitMenu.Actions(store, "Thrall Earthson", "MENU_UNIT_PLAYER", "target")[1].list)
     end)
 
+    it("fixes the list to the Blacklist only for a unit of the own faction", function()
+      wow.units.focus = { name = "Jaina", surname = "Proudmoore", player = true, faction = "Alliance" }
+      wow.units.target = { name = "Thrall", surname = "Earthson", player = true, faction = "Horde" }
+      assert.is_true(ns.UnitMenu.Actions(store, "Jaina Proudmoore", "MENU_UNIT_PLAYER", "focus")[1].fixed)
+      assert.is_nil(ns.UnitMenu.Actions(store, "Thrall Earthson", "MENU_UNIT_PLAYER", "target")[1].fixed)
+      assert.is_nil(ns.UnitMenu.Actions(store, "Jaina Proudmoore", "MENU_UNIT_PARTY")[1].fixed)
+      wow.units.focus.faction = nil
+      assert.is_nil(ns.UnitMenu.Actions(store, "Jaina Proudmoore", "MENU_UNIT_PLAYER", "focus")[1].fixed)
+    end)
+
     it("offers edit for an own entry", function()
       store:AddOrUpdate("enemy", "Thrall Earthson", "x")
       assert.same({ { labelKey = "MENU_EDIT", kind = "edit", list = "enemy" } },
@@ -299,6 +309,14 @@ describe("Tooltip and UnitMenu", function()
       assert.equals(ns.L["MENU_ADD"], root.buttons[1].text)
       root.buttons[1].fn()
       assert.same({ { "Thrall Earthson", "enemy", nil } }, openSpy.calls)
+    end)
+
+    it("opens the dialog with a fixed Blacklist for a friendly unit", function()
+      wow.units.focus = { name = "Jaina", surname = "Proudmoore", player = true, faction = "Alliance" }
+      local root = fakeRoot()
+      modifiers.MENU_UNIT_PLAYER(nil, root, { unit = "focus", name = "Jaina", surname = "Proudmoore" })
+      root.buttons[1].fn()
+      assert.same({ { "Jaina Proudmoore", "friendly", nil, nil, true } }, openSpy.calls)
     end)
 
     it("opens the dialog with the own entry for edit", function()

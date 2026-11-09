@@ -203,6 +203,8 @@ local STATEFUL = {
   SetID = function(self, id) self._state.id = id end,
   GetID = function(self) return self._state.id or 0 end,
   GetCenter = function() return nil end,
+  SetEnabled = function(self, v) self._state.enabled = v and true or false end,
+  IsEnabled = function(self) return self._state.enabled ~= false end,
 }
 
 proxyMeta.__index = function(self, key)
