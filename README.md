@@ -162,7 +162,7 @@ Wenn du einen Spieler ignorierst (Rechtsklick-Menü, `/ignore` oder Freundesfens
 
 ### 📋 Hauptfenster
 
-Zwei Reiter: **Eigene Fraktion** (Blacklist) und **Gegnerische Fraktion** (KOS). Pro Spieler eine Zeile mit Grund, Ersteller, Datum und Status; steht ein Spieler bei mehreren Leuten auf der Liste, lässt sich die Zeile aufklappen. Filter **Alle Einträge** / **Nur meine** und eine Namenssuche. Das Zahnrad neben „Export“ öffnet die Einstellungen.
+Reiter **Eigene Fraktion** (Blacklist) und **Gegnerische Fraktion** (KOS). Pro Spieler eine Zeile mit Grund, Ersteller, Datum und Status; steht ein Spieler bei mehreren Leuten auf der Liste, lässt sich die Zeile aufklappen. Filter **Alle Einträge** / **Nur meine** und eine Namenssuche. Das Zahnrad neben „Export“ öffnet die Einstellungen.
 
 Ein dritter Reiter, **Gilde**, zeigt jedes Gildenmitglied mit Online-Status, ob es GrudgeForever nutzt, die Addon-Version und wann sich sein Addon zuletzt gemeldet hat. Unter der Liste steht, wie viele Mitglieder das Addon haben. GrudgeForever erfährt das aus der kurzen Begrüßung, die jedes Addon beim Einloggen schickt. Mitglieder mit Abgleich auf *Manuell* erscheinen deshalb erst nach ihrem eigenen manuellen Abgleich. Ohne Gilde ist der Reiter ausgegraut.
 
