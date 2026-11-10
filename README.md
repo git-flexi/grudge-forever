@@ -115,7 +115,7 @@ make lint      # luacheck
 make package   # build dist/GrudgeForever-<version>.zip
 ```
 
-Bundled libraries and their sources are listed in [`Libs/README.md`](Libs/README.md).
+GrudgeForever is released under the [MIT License](LICENSE). Bundled libraries and their sources are listed in [`Libs/README.md`](Libs/README.md).
 
 The CurseForge project text and logo live in [`curseforge/`](curseforge/). Pushing a `v*` tag runs the [CurseForge workflow](.github/workflows/curseforge.yml), which uploads the build once the project id is in the TOC and the `CF_API_TOKEN` secret is set.
 
@@ -228,6 +228,6 @@ Danach `/gf debug` wieder ausschalten.
 
 ### 🛠 Entwicklung
 
-Voraussetzungen: LuaJIT, busted und luacheck (z. B. über LuaRocks mit `--lua-version=5.1`). Befehle: `make test`, `make lint`, `make package` (erzeugt `dist/GrudgeForever-<Version>.zip`). Die eingebetteten Bibliotheken und ihre Quellen stehen in [`Libs/README.md`](Libs/README.md). Text und Logo für die CurseForge-Projektseite liegen in [`curseforge/`](curseforge/). Ein neuer `v*`-Tag startet den [CurseForge-Workflow](.github/workflows/curseforge.yml). Er lädt den Build hoch, sobald die Projekt-ID in der TOC steht und das Secret `CF_API_TOKEN` gesetzt ist.
+Voraussetzungen: LuaJIT, busted und luacheck (z. B. über LuaRocks mit `--lua-version=5.1`). Befehle: `make test`, `make lint`, `make package` (erzeugt `dist/GrudgeForever-<Version>.zip`). GrudgeForever steht unter der [MIT-Lizenz](LICENSE). Die eingebetteten Bibliotheken und ihre Quellen stehen in [`Libs/README.md`](Libs/README.md). Text und Logo für die CurseForge-Projektseite liegen in [`curseforge/`](curseforge/). Ein neuer `v*`-Tag startet den [CurseForge-Workflow](.github/workflows/curseforge.yml). Er lädt den Build hoch, sobald die Projekt-ID in der TOC steht und das Secret `CF_API_TOKEN` gesetzt ist.
 
 </details>
