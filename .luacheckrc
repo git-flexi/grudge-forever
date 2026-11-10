@@ -13,7 +13,7 @@ read_globals = {
   "IsInGroup", "IsInRaid", "GetNumGroupMembers", "PlaySound", "PlaySoundFile", "DEFAULT_CHAT_FRAME", "date",
   "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
   "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants", "StaticPopup_Show",
-  "geterrorhandler", "C_FriendList", "hooksecurefunc",
+  "geterrorhandler", "C_FriendList", "hooksecurefunc", "GameTooltip",
 }
 
 -- addon-owned globals, plus client tables the addon registers into

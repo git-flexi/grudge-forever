@@ -316,6 +316,21 @@ local function createControls()
   buttons.export = button(L["MW_EXPORT"], 80, function() ns.UI.TextDialog.Open("export") end)
   buttons.export:SetPoint("RIGHT", buttons.import, "LEFT", -4, 0)
 
+  -- small gear button that opens the settings
+  local options = CreateFrame("Button", "GrudgeForeverMainWindowOptions", frame)
+  options:SetSize(22, 22)
+  options:SetPoint("RIGHT", buttons.export, "LEFT", -6, 0)
+  options:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
+  options:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+  options:SetScript("OnClick", function() ns.OptionsPanel.Open() end)
+  options:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText(L["MW_OPTIONS"])
+    GameTooltip:Show()
+  end)
+  options:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  buttons.options = options
+
   buttons.add = button(L["MW_ADD"], 96, actions.add)
   buttons.add:SetPoint("BOTTOMLEFT", 8, 6)
   buttons.edit = button(L["MW_EDIT"], 96, actions.edit)

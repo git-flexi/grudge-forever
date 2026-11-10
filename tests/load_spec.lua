@@ -564,6 +564,13 @@ describe("Addon load", function()
       assert.is_true(dialog.list:IsEnabled())
     end)
 
+    it("opens the settings from the gear button", function()
+      local opened = spy.on(ns.OptionsPanel, "Open")
+      SlashCmdList.GRUDGEFOREVER("")
+      wow.fire(frameNamed("GrudgeForeverMainWindowOptions"), "OnClick")
+      assert.spy(opened).was_called(1)
+    end)
+
     it("opens the edit, export and import dialogs from its buttons", function()
       SlashCmdList.GRUDGEFOREVER("")
       wow.fire(rows()[2], "OnClick")
