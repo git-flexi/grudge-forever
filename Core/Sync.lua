@@ -4,7 +4,8 @@ local ADDON, ns = ...
 -- through deps, so this file never touches WoW APIs or the network.
 --
 -- Messages (all carry v = Const.PROTO):
---   H hello    { t="H", v, pid, char, chars = { display… }, d = { [owner] = rev }, full = bool }
+--   H hello    { t="H", v, pid, char, chars = { display… }, d = { [owner] = rev }, full = bool, av = version }
+--              (av: the addon version; older addons do not send it, a malformed one is ignored)
 --   R request  { t="R", v, pid, want = { [owner] = haveRev } }
 --   A announce { t="A", v, from = pid, o, rev, base } sent SETTLE seconds before a planned D
 --   D data     a Store delta plus { t="D", v, from = pid }
@@ -122,7 +123,7 @@ end
 -- Construction ------------------------------------------------------------------
 
 -- deps = { store, send(msg, prio), now(), after(seconds, fn) -> handle, random() -> [0, 1),
---          mode() -> "auto"|"manual"|"off", sv }
+--          mode() -> "auto"|"manual"|"off", sv, version = addon version string or nil }
 function Sync.New(deps)
   return setmetatable({
     deps = deps,
@@ -169,7 +170,7 @@ function Sync:sendHello(full)
   table.sort(chars)
   self.deps.send({
     t = "H", v = Const.PROTO, pid = self.store:GetPlayerId(), char = self.store:GetCurrentChar(),
-    chars = chars, d = self.store:Digest(), full = full,
+    chars = chars, d = self.store:Digest(), full = full, av = self.deps.version,
   }, PRIO_CONTROL)
 end
 
@@ -266,7 +267,7 @@ end
 
 function Sync:onHello(msg, sender)
   -- also while not answering: a hello proves the sender is in the guild (keeps or brings it back)
-  self.store:NoteMember(msg.pid, msg.chars, msg.char)
+  self.store:NoteMember(msg.pid, msg.chars, msg.char, msg.av)
   if not self:isActive() then return end
   local now = self.deps.now()
   -- a manual sync is limited on its own, so it still works right after the automatic login hello

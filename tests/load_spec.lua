@@ -329,6 +329,15 @@ describe("Addon load", function()
     assert.is_true(chatContains(ns.L["TEST_REASON"]))
   end)
 
+  it("sends the TOC version with its hello", function()
+    _G.C_AddOns = { GetAddOnMetadata = function(name, field)
+      if name == ADDON and field == "Version" then return "9.8.7" end
+    end }
+    login()
+    assert.equals("9.8.7", ns.Core.version)
+    assert.equals("9.8.7", ns.Core.sync.deps.version)
+  end)
+
   it("shows the minimap button through the embedded LibDBIcon", function()
     login()
     assert.is_true(LibStub("LibDBIcon-1.0"):IsRegistered("GrudgeForever"))

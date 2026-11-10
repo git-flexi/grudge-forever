@@ -66,6 +66,11 @@ function Store.IsCount(v)
   return type(v) == "number" and v == v and v >= 0 and v < math.huge
 end
 
+-- A short version string such as "0.3.0" or "1.2.0-beta".
+function Store.IsVersion(v)
+  return type(v) == "string" and not Names.IsSecret(v) and #v <= 20 and v:find("^[%w%.%-]+$") ~= nil
+end
+
 function Store.IsList(list)
   return isList(list)
 end
@@ -440,10 +445,13 @@ end
 -- A member said hello on the guild channel, which proves it is in the guild: learn its characters
 -- (also a twink no data mentioned yet), remember the speaking one for "by", and take it back if it
 -- was pruned. charList: display names; char: the speaking character.
-function Store:NoteMember(ownerId, charList, char)
+-- version: the addon version the member sent (only newer addons send one).
+function Store:NoteMember(ownerId, charList, char, version)
   if ownerId == self.sv.playerId then return end
   local owner = self:ownerFor(ownerId)
   if not owner then return end
+  owner.seen = self.deps.now()
+  if Store.IsVersion(version) then owner.version = version end
   for _, name in ipairs(charList or {}) do
     local key = Names.Normalize(name)
     if key then owner.chars[key] = Names.Display(name) end

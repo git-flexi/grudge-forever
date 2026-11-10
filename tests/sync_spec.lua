@@ -86,6 +86,7 @@ describe("Sync", function()
       random = opts.random or function() return math.random() end,
       mode = function() return c.mode end,
       sv = c.sv,
+      version = opts.version,
     })
     c.pid = function() return c.store:GetPlayerId() end
     clients[#clients + 1] = c
@@ -135,6 +136,25 @@ describe("Sync", function()
     math.randomseed(4711)
     clock = 1700000000
     timers, timerSeq, log, clients, bulkDelay, normalDelay = {}, 0, {}, {}, 0, 0
+  end)
+
+  it("sends the addon version with its hello and notes the version of others", function()
+    local a = newClient("Jaina Proudmoore", { version = "0.3.0" })
+    local b = newClient("Arthas Menethil", { version = "0.4.1" })
+    b.sync:OnRosterReady()
+    assert.equals("0.4.1", sent({ from = b, t = "H" })[1].msg.av)
+    assert.equals("0.4.1", a.store:GetOwners()[b.pid()].version)
+  end)
+
+  it("ignores a malformed addon version but keeps the hello", function()
+    local a = newClient("Jaina Proudmoore")
+    local b = newClient("Arthas Menethil")
+    local msg = hello(b)
+    msg.av = string.rep("9", 40)
+    a.sync:OnMessage(msg, b.name)
+    local owner = a.store:GetOwners()[b.pid()]
+    assert.is_table(owner)
+    assert.is_nil(owner.version)
   end)
 
   it("brings a new member up to date after its hello", function()

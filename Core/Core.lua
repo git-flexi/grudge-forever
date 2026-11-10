@@ -178,10 +178,19 @@ end
 
 -- Startup ----------------------------------------------------------------------------
 
+-- The addon version from the TOC, or nil when the client cannot tell.
+local function addonVersion()
+  local get = C_AddOns and C_AddOns.GetAddOnMetadata
+  local ok, version = pcall(get or error, ADDON, "Version")
+  if ok and ns.Store.IsVersion(version) then return version end
+  return nil
+end
+
 local function onAddonLoaded()
   GrudgeForeverDB = GrudgeForeverDB or {}
   local sv = GrudgeForeverDB
   Core.sv = sv
+  Core.version = addonVersion()
   ns.Options.Apply(sv)
   Core.store = ns.Store.New(sv, { now = GetServerTime, random = math.random })
   ns.Slash.Register()
@@ -241,6 +250,7 @@ local function onLogin(frame)
     random = math.random,
     mode = function() return guildResolved and sv.settings.syncMode or "off" end,
     sv = sv,
+    version = Core.version,
   })
   Core.transport:Register()
   C_Timer.NewTicker(1, function() Core.transport:Flush() end)

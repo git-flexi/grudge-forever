@@ -379,6 +379,16 @@ describe("Store", function()
       assert.equals("Muradin Bronzebeard", store:Lookup("Thrall Earthson")[1].by)
     end)
 
+    it("remembers the addon version and when the member last said hello", function()
+      store:NoteMember("aaaaaaaaaaaaaaaa", { "Jaina Proudmoore" }, "Jaina Proudmoore", "0.3.0")
+      local owner = store:GetOwners().aaaaaaaaaaaaaaaa
+      assert.equals("0.3.0", owner.version)
+      assert.is_number(owner.seen)
+      -- an older addon sends no version: the known one stays
+      store:NoteMember("aaaaaaaaaaaaaaaa", { "Jaina Proudmoore" }, "Jaina Proudmoore")
+      assert.equals("0.3.0", owner.version)
+    end)
+
     it("never notes the own id and nothing without a guild", function()
       store:NoteMember(store:GetPlayerId(), { "Jaina Proudmoore" }, "Jaina Proudmoore")
       assert.same({}, store:GetOwners())
