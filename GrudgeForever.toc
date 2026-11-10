@@ -4,6 +4,7 @@
 ## Notes-deDE: Markiere Spieler, mit denen du nie wieder spielen willst, und feindliche KOS-Ziele - werde gewarnt, wenn sie auftauchen, und teile die Listen mit deiner Gilde.
 ## Version: 0.3.1
 ## SavedVariables: GrudgeForeverDB
+## X-Curse-Project-ID: 1795921
 ## IconTexture: Interface\AddOns\GrudgeForever\Media\icon
 
 embeds.xml
