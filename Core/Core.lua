@@ -148,10 +148,24 @@ end
 
 local function onRoster()
   updateGuild()
-  if not Core.HasSyncGuild() then return end
-  -- prune first, so the hello does not advertise owners that just left
-  pruneByRoster()
-  sayHello()
+  if Core.HasSyncGuild() then
+    -- prune first, so the hello does not advertise owners that just left
+    pruneByRoster()
+    sayHello()
+  end
+  -- the guild tab shows online states from the roster
+  refreshWindow()
+end
+
+-- The guild roster as { { name, online } ... }; empty without a guild or before it loaded.
+function Core.GuildRoster()
+  local out = {}
+  if not (IsInGuild() and GetNumGuildMembers and GetGuildRosterInfo) then return out end
+  for i = 1, GetNumGuildMembers() or 0 do
+    local name, _, _, _, _, _, _, _, online = GetGuildRosterInfo(i)
+    out[#out + 1] = { name = name, online = online == true }
+  end
+  return out
 end
 
 -- Options: the sync mode changed.

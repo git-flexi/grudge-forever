@@ -43,7 +43,9 @@ When you ignore a player (right-click menu, `/ignore` or the friends window), Gr
 
 ## 📋 Main window
 
-Two tabs: **Own faction** (Blacklist) and **Enemy faction** (KOS). One row per player with reason, author, date and status; players listed by several people expand to show every entry. Filter **All entries** / **Only mine** and a name search.
+Tabs **Own faction** (Blacklist) and **Enemy faction** (KOS). One row per player with reason, author, date and status; players listed by several people expand to show every entry. Filter **All entries** / **Only mine** and a name search. The gear button next to Export opens the settings.
+
+A third tab, **Guild**, lists every guild member with online state, whether they run GrudgeForever, their addon version and when their addon last reported. Below the list you see how many members run the addon. GrudgeForever learns this from the short hello every copy sends on login, so members with sync set to *Manual* only show up after their own manual sync. Without a guild the tab is disabled.
 
 Buttons: **Add**, **Edit**, **Delete** (own entries only), **Adopt** (copy someone else's entry into your own list) and **Adopt all from …**, **Export**, **Import**, **Sync now**.
 
@@ -160,7 +162,9 @@ Wenn du einen Spieler ignorierst (Rechtsklick-Menü, `/ignore` oder Freundesfens
 
 ### 📋 Hauptfenster
 
-Zwei Reiter: **Eigene Fraktion** (Blacklist) und **Gegnerische Fraktion** (KOS). Pro Spieler eine Zeile mit Grund, Ersteller, Datum und Status; steht ein Spieler bei mehreren Leuten auf der Liste, lässt sich die Zeile aufklappen. Filter **Alle Einträge** / **Nur meine** und eine Namenssuche.
+Zwei Reiter: **Eigene Fraktion** (Blacklist) und **Gegnerische Fraktion** (KOS). Pro Spieler eine Zeile mit Grund, Ersteller, Datum und Status; steht ein Spieler bei mehreren Leuten auf der Liste, lässt sich die Zeile aufklappen. Filter **Alle Einträge** / **Nur meine** und eine Namenssuche. Das Zahnrad neben „Export“ öffnet die Einstellungen.
+
+Ein dritter Reiter, **Gilde**, zeigt jedes Gildenmitglied mit Online-Status, ob es GrudgeForever nutzt, die Addon-Version und wann sich sein Addon zuletzt gemeldet hat. Unter der Liste steht, wie viele Mitglieder das Addon haben. GrudgeForever erfährt das aus der kurzen Begrüßung, die jedes Addon beim Einloggen schickt. Mitglieder mit Abgleich auf *Manuell* erscheinen deshalb erst nach ihrem eigenen manuellen Abgleich. Ohne Gilde ist der Reiter ausgegraut.
 
 Buttons: **Hinzufügen**, **Bearbeiten**, **Löschen** (nur eigene Einträge), **Übernehmen** (Eintrag eines anderen in deinen Bestand kopieren) und **Alle von … übernehmen**, **Export**, **Import**, **Jetzt abgleichen**.
 

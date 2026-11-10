@@ -1,7 +1,8 @@
 local ADDON, ns = ...
 
 -- Main window: one tab per list, one row per player (expandable to all entries of that player),
--- a filter and name search on top, actions at the bottom.
+-- a filter and name search on top, actions at the bottom. A third tab lists the guild members and
+-- who of them runs the addon.
 local Const, L, Names = ns.Const, ns.L, ns.Names
 
 ns.UI = ns.UI or {}
@@ -11,7 +12,9 @@ local ROW_HEIGHT = 20
 local TABS = {
   { list = Const.LIST_FRIENDLY, key = "MW_TAB_FRIENDLY" },
   { list = Const.LIST_ENEMY, key = "MW_TAB_ENEMY" },
+  { guild = true, key = "MW_TAB_GUILD" },
 }
+local GUILD_TAB = 3
 local COLUMNS = {
   { key = "MW_COL_NAME", x = 8, width = 160 },
   { key = "MW_COL_REASON", x = 172, width = 230 },
@@ -19,6 +22,7 @@ local COLUMNS = {
   { key = "MW_COL_DATE", x = 550, width = 76 },
   { key = "MW_COL_STATUS", x = 630, width = 54 },
 }
+local GUILD_HEADERS = { "MW_COL_NAME", "MW_COL_ONLINE", "MW_COL_ADDON", "MW_COL_VERSION", "MW_COL_SEEN" }
 local OWN_COLOR = { 1, 0.82, 0 }
 local OTHER_COLOR = { 1, 1, 1 }
 local ENTRY_COLOR = { 0.75, 0.75, 0.75 }
@@ -32,6 +36,10 @@ local current = {} -- key -> visible matches of the shown list
 
 local function listKey()
   return TABS[state.tab].list
+end
+
+local function onGuildTab()
+  return TABS[state.tab].guild == true
 end
 
 local function formatDate(ts)
@@ -71,6 +79,22 @@ local function buildItems()
       for _, m in ipairs(matches) do items[#items + 1] = { kind = "entry", key = key, match = m } end
     end
   end
+  return items
+end
+
+-- Guild members, filtered by the name search.
+local function buildGuildItems()
+  local Core = ns.Core
+  local store = Core.store
+  local members = ns.GuildMembers.Build(Core.GuildRoster(), store:GetOwners(),
+    { chars = store:GetMyGuildChars(), version = Core.version, now = GetServerTime() })
+  local needle = Names.Normalize(state.search)
+  local items = {}
+  for _, member in ipairs(members) do
+    if not needle or member.key:find(needle, 1, true) then items[#items + 1] = { kind = "member", member = member } end
+  end
+  frame.summary:SetText(L["MW_GUILD_SUMMARY"]:format(ns.GuildMembers.Count(members))
+    .. (Core.sv.settings.syncMode == "off" and L["MW_GUILD_SYNC_OFF"] or ""))
   return items
 end
 
@@ -148,7 +172,26 @@ local function entryCells(item)
   return { "", Escape(m.entry.reason), byText(m), formatDate(m.entry.updated), status }, ENTRY_COLOR
 end
 
+local GREEN, GREY = "ff40ff40", "ff9d9d9d"
+
+local function colored(color, text)
+  return "|c" .. color .. text .. "|r"
+end
+
+local function memberCells(item)
+  local m = item.member
+  local version = m.version and Escape(m.version) or (m.hasAddon and L["MW_VERSION_OLD"] or "")
+  return {
+    Escape(m.name),
+    m.online and colored(GREEN, L["MW_ONLINE"]) or colored(GREY, L["MW_OFFLINE"]),
+    m.hasAddon and colored(GREEN, L["MW_ADDON_YES"]) or "-",
+    version,
+    formatDate(m.seen),
+  }, m.online and OTHER_COLOR or ENTRY_COLOR
+end
+
 local function onRowClick(item)
+  if item.kind == "member" then return end
   if item.kind == "player" then
     if #item.matches > 1 then state.expanded[item.key] = not state.expanded[item.key] end
     state.selKey, state.selOwner = item.key, nil
@@ -180,7 +223,9 @@ local function initRow(row, item)
   end
   row.item = item
   local cells, color
-  if item.kind == "player" then
+  if item.kind == "member" then
+    cells, color = memberCells(item)
+  elseif item.kind == "player" then
     cells, color = playerCells(item)
   else
     cells, color = entryCells(item)
@@ -189,7 +234,7 @@ local function initRow(row, item)
     fs:SetText(cells[i])
     fs:SetTextColor(color[1], color[2], color[3])
   end
-  row.selection:SetShown(isSelected(item))
+  row.selection:SetShown(item.kind ~= "member" and isSelected(item))
 end
 
 -- Buttons -----------------------------------------------------------------------------
@@ -208,7 +253,13 @@ local function updateSyncButton()
   end
 end
 
+local ACTION_BUTTONS = { "add", "edit", "delete", "mute", "adopt", "adoptAll" }
+
 local function updateButtons()
+  if onGuildTab() then
+      updateSyncButton()
+    return
+  end
   local own, foreign = selectedPlayer()
   local sel = selectedMatch()
   local foreignSel = sel and not sel.isOwn and sel or nil
@@ -271,6 +322,8 @@ local function selectTab(index)
   state.tab = index
   state.selKey, state.selOwner = nil, nil
   PanelTemplates_SetTab(frame, index)
+  -- the roster answer refreshes the window again
+  if TABS[index].guild and IsInGuild() then C_GuildInfo.GuildRoster() end
   MainWindow.Refresh()
 end
 
@@ -289,6 +342,7 @@ end
 
 local function createControls()
   local filter = CreateFrame("DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
+  frame.filter = filter
   filter:SetPoint("TOPLEFT", 12, -30)
   filter:SetWidth(140)
   filter:SetupMenu(function(_, root)
@@ -299,6 +353,15 @@ local function createControls()
       end, option[2])
     end
   end)
+
+  -- on the guild tab a summary stands where the action buttons are
+  local summary = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  summary:SetPoint("BOTTOMLEFT", 14, 10)
+  summary:SetPoint("BOTTOMRIGHT", -14, 10)
+  summary:SetJustifyH("LEFT")
+  summary:SetWordWrap(false)
+  summary:Hide()
+  frame.summary = summary
 
   local search = CreateFrame("EditBox", nil, frame, "SearchBoxTemplate")
   search:SetPoint("LEFT", filter, "RIGHT", 16, 0)
@@ -347,10 +410,12 @@ local function createList()
   inset:SetPoint("TOPLEFT", 4, -60)
   inset:SetPoint("BOTTOMRIGHT", -6, 32)
 
-  for _, col in ipairs(COLUMNS) do
+  frame.headers = {}
+  for i, col in ipairs(COLUMNS) do
     local header = inset:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     header:SetPoint("TOPLEFT", col.x + 4, -6)
     header:SetText(L[col.key])
+    frame.headers[i] = header
   end
 
   local scrollBox = CreateFrame("Frame", nil, inset, "WowScrollBoxList")
@@ -414,9 +479,33 @@ end
 
 -- Public --------------------------------------------------------------------------------
 
+-- Without a guild the guild tab is disabled; if it was open, the first tab takes over.
+local function updateGuildTab()
+  if ns.Core.store:GetCurrentGuild() then
+    PanelTemplates_EnableTab(frame, GUILD_TAB)
+    return
+  end
+  PanelTemplates_DisableTab(frame, GUILD_TAB)
+  if state.tab == GUILD_TAB then
+    state.tab = 1
+    PanelTemplates_SetTab(frame, 1)
+  end
+end
+
+local function updateLayout()
+  local guild = onGuildTab()
+  -- the guild tab only shows members: no list filter and no actions
+  frame.filter:SetShown(not guild)
+  for _, key in ipairs(ACTION_BUTTONS) do buttons[key]:SetShown(not guild) end
+  frame.summary:SetShown(guild)
+  for i, col in ipairs(COLUMNS) do frame.headers[i]:SetText(L[guild and GUILD_HEADERS[i] or col.key]) end
+end
+
 function MainWindow.Refresh()
   if not frame or not frame:IsShown() then return end
-  local items = buildItems()
+  updateGuildTab()
+  updateLayout()
+  local items = onGuildTab() and buildGuildItems() or buildItems()
   dropVanishedSelection()
   frame.scrollBox:SetDataProvider(CreateDataProvider(items), ScrollBoxConstants.RetainScrollPosition)
   updateButtons()

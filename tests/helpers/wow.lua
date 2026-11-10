@@ -23,6 +23,7 @@ local GLOBALS = {
   -- installed by wow.installUI() only
   "hooksecurefunc", "securecallfunction", "GetTime", "GetFramerate", "ChatThrottleLib", "C_UIFileAsset",
   "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
+  "PanelTemplates_EnableTab", "PanelTemplates_DisableTab",
   "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants",
   "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "Minimap",
 }
@@ -145,7 +146,12 @@ function wow.reset()
     return wow.guildName
   end
   _G.GetNumGuildMembers = function() return #wow.roster, #wow.roster end
-  _G.GetGuildRosterInfo = function(i) return wow.roster[i] end
+  -- roster entries are names, or { name =, online = } for members whose online state matters
+  _G.GetGuildRosterInfo = function(i)
+    local m = wow.roster[i]
+    if type(m) ~= "table" then return m end
+    return m.name, "Rank", 1, 80, "Warrior", "Zone", "", "", m.online == true
+  end
   _G.C_GuildInfo = { GuildRoster = function() wow.rosterRequests = wow.rosterRequests + 1 end }
   _G.GetCVarBool = function(name) return wow.cvars[name] == true end
 
@@ -249,6 +255,9 @@ function wow.installUI()
   _G.ButtonFrameTemplate_HidePortrait = stub
   _G.PanelTemplates_SetNumTabs = stub
   _G.PanelTemplates_SetTab = stub
+  wow.disabledTabs = {}
+  _G.PanelTemplates_EnableTab = function(_, i) wow.disabledTabs[i] = nil end
+  _G.PanelTemplates_DisableTab = function(_, i) wow.disabledTabs[i] = true end
   _G.CreateScrollBoxListLinearView = stub
   _G.CreateDataProvider = stub
   _G.ScrollUtil = newProxy()

@@ -573,6 +573,38 @@ describe("Addon load", function()
       assert.is_true(dialog.list:IsEnabled())
     end)
 
+    it("lists the guild members and who runs the addon on the guild tab", function()
+      wow.roster = { { name = "Jaina-Proudmoore", online = true }, { name = "Thrall-Earthson", online = false },
+        { name = "Sylvanas-Windrunner", online = true } }
+      ns.Core.store:NoteMember("cccccccccccccccc", { "Thrall Earthson" }, "Thrall Earthson", "0.3.0")
+      SlashCmdList.GRUDGEFOREVER("")
+      wow.fire(frameNamed("GrudgeForeverMainWindowTab3"), "OnClick")
+      assert.equals(3, #items)
+      assert.equals("member", items[1].kind)
+      local keys = {}
+      for i, item in ipairs(items) do keys[i] = item.member.key end
+      assert.same({ "jaina proudmoore", "sylvanas windrunner", "thrall earthson" }, keys)
+      rows()
+      local frame = frameNamed("GrudgeForeverMainWindow")
+      assert.equals(ns.L["MW_GUILD_SUMMARY"]:format(2, 3), frame.summary:GetText())
+      assert.is_true(frame.summary:IsShown())
+      assert.is_false(buttonLabeled(ns.L["MW_ADD"]):IsShown())
+
+      wow.fire(frameNamed("GrudgeForeverMainWindowTab1"), "OnClick")
+      assert.equals("player", items[1].kind)
+      assert.is_false(frame.summary:IsShown())
+      assert.is_true(buttonLabeled(ns.L["MW_ADD"]):IsShown())
+    end)
+
+    it("disables the guild tab without a guild", function()
+      SlashCmdList.GRUDGEFOREVER("")
+      wow.fire(frameNamed("GrudgeForeverMainWindowTab3"), "OnClick")
+      ns.Core.store:SetCurrentCharacter("Jaina Proudmoore", nil)
+      ns.UI.MainWindow.Refresh()
+      assert.is_true(wow.disabledTabs[3])
+      assert.equals("player", items[1].kind)
+    end)
+
     it("opens the settings from the gear button", function()
       local opened = spy.on(ns.OptionsPanel, "Open")
       SlashCmdList.GRUDGEFOREVER("")

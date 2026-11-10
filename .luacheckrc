@@ -12,6 +12,7 @@ read_globals = {
   "GetGuildInfo", "GetNumGuildMembers", "GetGuildRosterInfo", "C_GuildInfo", "GetCVarBool",
   "IsInGroup", "IsInRaid", "GetNumGroupMembers", "PlaySound", "PlaySoundFile", "DEFAULT_CHAT_FRAME", "date",
   "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
+  "PanelTemplates_EnableTab", "PanelTemplates_DisableTab",
   "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants", "StaticPopup_Show",
   "geterrorhandler", "C_FriendList", "hooksecurefunc", "GameTooltip", "C_AddOns",
 }
@@ -34,6 +35,7 @@ files["tests/**"] = {
     "SlashCmdList", "SLASH_GRUDGEFOREVER1", "SLASH_GRUDGEFOREVER2", "date",
     "hooksecurefunc", "securecallfunction", "GetTime", "GetFramerate", "ChatThrottleLib", "C_UIFileAsset",
     "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
+  "PanelTemplates_EnableTab", "PanelTemplates_DisableTab",
     "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants",
     "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "geterrorhandler", "Settings",
     "C_FriendList", "Minimap", "C_AddOns",

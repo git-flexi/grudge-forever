@@ -21,6 +21,7 @@ Core\Alerts.lua
 Core\Options.lua
 Core\Detect.lua
 Core\IgnoreWatch.lua
+Core\GuildMembers.lua
 Core\Slash.lua
 UI\Banner.lua
 UI\OptionsPanel.lua
