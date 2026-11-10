@@ -1,6 +1,7 @@
 # CurseForge project page
 
 Text to paste into the CurseForge project form. Not shipped with the addon.
+The CurseForge editor does not render Markdown: paste the description from `description.html` through the editor's source code view.
 
 ## Project name
 
