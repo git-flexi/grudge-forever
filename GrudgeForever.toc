@@ -2,7 +2,7 @@
 ## Title: GrudgeForever
 ## Notes: Mark players you never want to group with again, plus enemy KOS targets - get warned when they show up, and share the lists with your guild.
 ## Notes-deDE: Markiere Spieler, mit denen du nie wieder spielen willst, und feindliche KOS-Ziele - werde gewarnt, wenn sie auftauchen, und teile die Listen mit deiner Gilde.
-## Version: 0.3.1
+## Version: 0.3.2
 ## SavedVariables: GrudgeForeverDB
 ## X-Curse-Project-ID: 1795921
 ## IconTexture: Interface\AddOns\GrudgeForever\Media\icon
