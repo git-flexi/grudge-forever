@@ -38,6 +38,12 @@ Every entry has a reason, and your guildmates who run GrudgeForever see your ent
 - **Minimap button**, which you can turn off in the settings.
 - English and German.
 
+### Getting started
+
+1. Right-click a player and choose **Add to GrudgeForever...**, or type `/gf add First Last reason`.
+2. Pick the list and enter a reason.
+3. That's it: you are warned when the player shows up, and your guildmates with GrudgeForever get the entry too.
+
 ### Commands
 
 - `/gf` opens the main window
