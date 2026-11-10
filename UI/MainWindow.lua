@@ -22,7 +22,13 @@ local COLUMNS = {
   { key = "MW_COL_DATE", x = 550, width = 76 },
   { key = "MW_COL_STATUS", x = 630, width = 54 },
 }
-local GUILD_HEADERS = { "MW_COL_NAME", "MW_COL_ONLINE", "MW_COL_ADDON", "MW_COL_VERSION", "MW_COL_SEEN" }
+local GUILD_COLUMNS = {
+  { key = "MW_COL_NAME", x = 8, width = 200 },
+  { key = "MW_COL_ONLINE", x = 212, width = 90 },
+  { key = "MW_COL_ADDON", x = 306, width = 70 },
+  { key = "MW_COL_VERSION", x = 380, width = 100 },
+  { key = "MW_COL_SEEN", x = 484, width = 160 },
+}
 local OWN_COLOR = { 1, 0.82, 0 }
 local OTHER_COLOR = { 1, 1, 1 }
 local ENTRY_COLOR = { 0.75, 0.75, 0.75 }
@@ -40,6 +46,10 @@ end
 
 local function onGuildTab()
   return TABS[state.tab].guild == true
+end
+
+local function columns()
+  return onGuildTab() and GUILD_COLUMNS or COLUMNS
 end
 
 local function formatDate(ts)
@@ -180,7 +190,9 @@ end
 
 local function memberCells(item)
   local m = item.member
-  local version = m.version and Escape(m.version) or (m.hasAddon and L["MW_VERSION_OLD"] or "")
+  -- "old" only with proof: the member's hello came without a version (members known from
+  -- passed-along data alone have not said hello yet)
+  local version = m.version and Escape(m.version) or (m.hasAddon and m.seen and L["MW_VERSION_OLD"] or "")
   return {
     Escape(m.name),
     m.online and colored(GREEN, L["MW_ONLINE"]) or colored(GREY, L["MW_OFFLINE"]),
@@ -211,10 +223,8 @@ local function initRow(row, item)
     highlight:SetAllPoints()
     highlight:SetColorTexture(1, 1, 1, 0.08)
     row.cells = {}
-    for i, col in ipairs(COLUMNS) do
+    for i = 1, #COLUMNS do
       local fs = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-      fs:SetPoint("LEFT", col.x, 0)
-      fs:SetWidth(col.width)
       fs:SetJustifyH("LEFT")
       fs:SetWordWrap(false)
       row.cells[i] = fs
@@ -222,6 +232,13 @@ local function initRow(row, item)
     row:SetScript("OnClick", function(self) onRowClick(self.item) end)
   end
   row.item = item
+  -- rows are recycled across tabs, which lay their columns out differently
+  for i, col in ipairs(columns()) do
+    local fs = row.cells[i]
+    fs:ClearAllPoints()
+    fs:SetPoint("LEFT", col.x, 0)
+    fs:SetWidth(col.width)
+  end
   local cells, color
   if item.kind == "member" then
     cells, color = memberCells(item)
@@ -257,7 +274,7 @@ local ACTION_BUTTONS = { "add", "edit", "delete", "mute", "adopt", "adoptAll" }
 
 local function updateButtons()
   if onGuildTab() then
-      updateSyncButton()
+    updateSyncButton()
     return
   end
   local own, foreign = selectedPlayer()
@@ -498,7 +515,13 @@ local function updateLayout()
   frame.filter:SetShown(not guild)
   for _, key in ipairs(ACTION_BUTTONS) do buttons[key]:SetShown(not guild) end
   frame.summary:SetShown(guild)
-  for i, col in ipairs(COLUMNS) do frame.headers[i]:SetText(L[guild and GUILD_HEADERS[i] or col.key]) end
+  for i, col in ipairs(columns()) do
+    local header = frame.headers[i]
+    header:ClearAllPoints()
+    header:SetPoint("TOPLEFT", col.x + 4, -6)
+    header:SetWidth(col.width)
+    header:SetText(L[col.key])
+  end
 end
 
 function MainWindow.Refresh()

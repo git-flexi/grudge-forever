@@ -584,16 +584,39 @@ describe("Addon load", function()
       local keys = {}
       for i, item in ipairs(items) do keys[i] = item.member.key end
       assert.same({ "jaina proudmoore", "sylvanas windrunner", "thrall earthson" }, keys)
-      rows()
+      local row = rows()[1]
       local frame = frameNamed("GrudgeForeverMainWindow")
+      -- own columns: a full date fits into "last seen"
+      assert.equals(ns.L["MW_COL_SEEN"], frame.headers[5]:GetText())
+      assert.is_true(row.cells[5]:GetWidth() >= 100)
       assert.equals(ns.L["MW_GUILD_SUMMARY"]:format(2, 3), frame.summary:GetText())
       assert.is_true(frame.summary:IsShown())
       assert.is_false(buttonLabeled(ns.L["MW_ADD"]):IsShown())
 
       wow.fire(frameNamed("GrudgeForeverMainWindowTab1"), "OnClick")
       assert.equals("player", items[1].kind)
+      assert.equals(ns.L["MW_COL_STATUS"], frame.headers[5]:GetText())
+      row = rows()[1]
+      assert.equals(54, row.cells[5]:GetWidth())
       assert.is_false(frame.summary:IsShown())
       assert.is_true(buttonLabeled(ns.L["MW_ADD"]):IsShown())
+    end)
+
+    it("calls a version old only for a member whose hello came without one", function()
+      wow.roster = { "Jaina-Proudmoore", "Thrall-Earthson", "Garrosh-Hellscream" }
+      ns.Core.store:NoteMember("cccccccccccccccc", { "Thrall Earthson" }, "Thrall Earthson")
+      -- known only from entries passed along by others: no hello yet
+      ns.Core.store:ApplyDelta({ o = "dddddddddddddddd", rev = 1, base = 0, lastChar = "Garrosh Hellscream",
+        chars = { ["garrosh hellscream"] = "Garrosh Hellscream" }, e = {
+          { key = "x y", name = "X Y", list = "enemy", reason = "r", created = 1, updated = 2, rev = 1,
+            deleted = false },
+        } })
+      SlashCmdList.GRUDGEFOREVER("")
+      wow.fire(frameNamed("GrudgeForeverMainWindowTab3"), "OnClick")
+      local versions = {}
+      for i, row in ipairs(rows()) do versions[items[i].member.key] = row.cells[4]:GetText() end
+      assert.equals(ns.L["MW_VERSION_OLD"], versions["thrall earthson"])
+      assert.equals("", versions["garrosh hellscream"])
     end)
 
     it("disables the guild tab without a guild", function()

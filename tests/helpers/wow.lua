@@ -216,6 +216,8 @@ local STATEFUL = {
       getmetatable(self))
     return texture
   end,
+  SetWidth = function(self, w) self._state.width = w end,
+  GetWidth = function(self) return self._state.width or 0 end,
   SetEnabled = function(self, v) self._state.enabled = v and true or false end,
   IsEnabled = function(self) return self._state.enabled ~= false end,
 }
