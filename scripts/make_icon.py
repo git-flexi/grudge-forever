@@ -1,6 +1,8 @@
-# Draws Media/icon.tga (64x64, skull on a red badge). Usage: python3 scripts/make_icon.py Media/icon.tga
+# Draws the skull-on-a-red-badge icon as an uncompressed TGA.
+# Usage: python3 scripts/make_icon.py Media/icon.tga [size]  (default 64; 512 for the CurseForge logo)
 import math, struct, sys
-N = 64; SS = 4
+N = int(sys.argv[2]) if len(sys.argv) > 2 else 64; SS = 4 if N <= 64 else 2
+SCALE = 64 / N  # the shapes below are drawn on a 64x64 grid
 def inside_circle(x, y, cx, cy, r): return (x-cx)**2 + (y-cy)**2 <= r*r
 def inside_ellipse(x, y, cx, cy, rx, ry): return ((x-cx)/rx)**2 + ((y-cy)/ry)**2 <= 1
 def inside_tri(x, y, a, b, c):
@@ -26,7 +28,7 @@ for py in range(N):
         r = g = b = a = 0
         for sy in range(SS):
             for sx in range(SS):
-                c = sample(px + (sx+.5)/SS, py + (sy+.5)/SS)
+                c = sample((px + (sx+.5)/SS) * SCALE, (py + (sy+.5)/SS) * SCALE)
                 if c: r += c[0]; g += c[1]; b += c[2]; a += 1
         n = SS*SS
         pix.append((r//a if a else 0, g//a if a else 0, b//a if a else 0, 255*a//n))

@@ -28,6 +28,8 @@ rsync -a \
   --exclude='/.luacheckrc' \
   --exclude='/.pkgmeta' \
   --exclude='/.superpowers' \
+  --exclude='/curseforge' \
+  --exclude='/.github' \
   --exclude='/dist' \
   --exclude='/.gitignore' \
   --exclude='.git' \

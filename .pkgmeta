@@ -3,7 +3,20 @@ package-as: GrudgeForever
 ignore:
   - tests
   - docs
+  - dist
+  - scripts
+  - curseforge
   - Makefile
   - .busted
   - .luacheckrc
-  - scripts
+  - .superpowers
+
+# bundled in Libs/, linked as embedded libraries on CurseForge
+embedded-libraries:
+  - libstub
+  - callbackhandler
+  - ace3
+  - libdeflate
+  - libsharedmedia-3-0
+  - libdatabroker-1-1
+  - libdbicon-1-0

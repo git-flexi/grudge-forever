@@ -1,0 +1,22 @@
+# Builds the addon with the BigWigs packager on every version tag and uploads it to CurseForge.
+# Needs the project id as "## X-Curse-Project-ID" in GrudgeForever.toc and the repository secret
+# CF_API_TOKEN (CurseForge author portal -> API tokens). Without them the upload is skipped.
+# GitHub releases are still made by hand, so no GitHub token is passed.
+name: CurseForge
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: BigWigsMods/packager@v2
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
