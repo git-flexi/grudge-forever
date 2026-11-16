@@ -27,7 +27,9 @@ describe("Transport", function()
     received = {}
     transport = ns.Transport.New({
       comm = comm,
-      onMessage = function(msg, sender) table.insert(received, { msg = msg, sender = sender }) end,
+      onMessage = function(msg, sender, channel)
+        table.insert(received, { msg = msg, sender = sender, channel = channel })
+      end,
     })
   end)
 
@@ -120,6 +122,48 @@ describe("Transport", function()
       assert.equals(3, #comm.sent)
     end)
 
+    it("sends to a group channel only while in a group", function()
+      transport:Send({ t = "V" }, "NORMAL", "PARTY")
+      assert.equals(0, #comm.sent)
+      wow.group = { size = 2 }
+      transport:Send({ t = "V" }, "NORMAL", "PARTY")
+      transport:Send({ t = "V" }, "NORMAL", "RAID")
+      -- the instance channel needs an instance group, the others a group of your own
+      transport:Send({ t = "V" }, "NORMAL", "INSTANCE_CHAT")
+      wow.group = { instance = true, size = 5 }
+      transport:Send({ t = "V" }, "NORMAL", "INSTANCE_CHAT")
+      transport:Send({ t = "V" }, "NORMAL", "PARTY")
+      assert.equals(3, #comm.sent)
+      assert.equals("PARTY", comm.sent[1].distribution)
+      assert.equals("INSTANCE_CHAT", comm.sent[3].distribution)
+      wow.group = { size = 2 }
+      -- group messages need no guild
+      wow.inGuild = false
+      transport:Send({ t = "V" }, "NORMAL", "PARTY")
+      assert.equals(4, #comm.sent)
+    end)
+
+    it("refuses channels other than guild and group", function()
+      wow.group = { size = 2 }
+      transport:Send({ t = "V" }, "NORMAL", "WHISPER")
+      transport:Send({ t = "V" }, "NORMAL", "YELL")
+      assert.equals(0, #comm.sent)
+    end)
+
+    it("keeps the channel of queued messages and drops group ones after leaving the group", function()
+      wow.group = { size = 2 }
+      wow.lockdown = true
+      transport:Send({ n = 1 }, "NORMAL", "RAID")
+      transport:Send({ n = 2 }, "NORMAL")
+      wow.group = nil
+      transport:Send({ n = 3 }, "NORMAL", "PARTY")
+      wow.lockdown = false
+      transport:Flush()
+      assert.equals(1, #comm.sent)
+      assert.equals("GUILD", comm.sent[1].distribution)
+      assert.same({ n = 2 }, decoded(comm.sent[1]))
+    end)
+
     it("treats a missing lockdown API as no lockdown", function()
       C_ChatInfo.InChatMessagingLockdown = nil
       transport:Send({ n = 1 }, "NORMAL")
@@ -135,6 +179,15 @@ describe("Transport", function()
       assert.equals(1, #received)
       assert.same({ t = "R", x = 1 }, received[1].msg)
       assert.equals("Bob-Realm", received[1].sender)
+    end)
+
+    it("delivers group messages with their channel", function()
+      for _, channel in ipairs({ "GUILD", "PARTY", "RAID", "INSTANCE_CHAT" }) do
+        transport:OnComm(ns.Const.PREFIX, payload({ t = "V" }), channel, "Bob")
+      end
+      assert.equals(4, #received)
+      assert.equals("GUILD", received[1].channel)
+      assert.equals("INSTANCE_CHAT", received[4].channel)
     end)
 
     it("ignores other distributions and prefixes", function()

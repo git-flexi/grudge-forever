@@ -157,6 +157,115 @@ describe("Addon load", function()
     assert.is_true(wow.rosterRequests > 0)
   end)
 
+  describe("version check", function()
+    local function withVersion(version)
+      _G.C_AddOns = { GetAddOnMetadata = function(name, field)
+        if name == ADDON and field == "Version" then return version end
+      end }
+    end
+
+    local function versionSends(sent)
+      local out = {}
+      for _, call in ipairs(sent.calls) do
+        if call.vals[2].t == "V" then out[#out + 1] = { av = call.vals[2].av, channel = call.vals[4] } end
+      end
+      return out
+    end
+
+    local function receive(msg, channel, sender)
+      ns.Core.transport:OnComm(ns.Const.PREFIX, ns.Codec.Encode(msg, "comm"), channel, sender)
+    end
+
+    it("announces the version to the guild once it is known, whatever the sync mode", function()
+      withVersion("1.1.0")
+      wow.inGuild = true
+      wow.guildName = "Die Gilde"
+      loadAddon()
+      fire("ADDON_LOADED", ADDON)
+      GrudgeForeverDB.settings.syncMode = "off"
+      -- the transport is built at login: watch its class
+      local sent = {}
+      local send = ns.Transport.Send
+      ns.Transport.Send = function(self, msg, prio, channel)
+        if msg.t == "V" then sent[#sent + 1] = channel end
+        return send(self, msg, prio, channel)
+      end
+      fire("PLAYER_LOGIN")
+      wow.runTimers()
+      fire("GUILD_ROSTER_UPDATE")
+      assert.same({ "GUILD" }, sent)
+    end)
+
+    it("announces the version when joining a group, on the group's channel", function()
+      withVersion("1.1.0")
+      login()
+      local sent = spy.on(ns.Core.transport, "Send")
+      wow.group = { size = 2 }
+      fire("GROUP_ROSTER_UPDATE")
+      fire("GROUP_ROSTER_UPDATE")
+      wow.group = nil
+      fire("GROUP_ROSTER_UPDATE")
+      wow.group = { raid = true, size = 10 }
+      fire("GROUP_ROSTER_UPDATE")
+      wow.group = nil
+      fire("GROUP_ROSTER_UPDATE")
+      wow.group = { raid = true, instance = true, size = 5 }
+      fire("GROUP_ROSTER_UPDATE")
+      assert.same({ { av = "1.1.0", channel = "PARTY" }, { av = "1.1.0", channel = "RAID" },
+        { av = "1.1.0", channel = "INSTANCE_CHAT" } }, versionSends(sent))
+    end)
+
+    it("announces the version at login when already in a group", function()
+      withVersion("1.1.0")
+      wow.group = { size = 2 }
+      loadAddon()
+      fire("ADDON_LOADED", ADDON)
+      local sent = {}
+      local send = ns.Transport.Send
+      -- the transport is built at login: watch its class
+      ns.Transport.Send = function(self, msg, prio, channel)
+        if msg.t == "V" then sent[#sent + 1] = channel end
+        return send(self, msg, prio, channel)
+      end
+      fire("PLAYER_LOGIN")
+      fire("GROUP_ROSTER_UPDATE")
+      -- messages sent while the client is still logging in can get lost: they wait a moment
+      assert.same({}, sent)
+      wow.runTimers()
+      assert.same({ "PARTY" }, sent)
+    end)
+
+    it("tells in the chat about a newer version two players reported, from guild or group", function()
+      withVersion("1.1.0")
+      wow.inGuild = true
+      wow.guildName = "Die Gilde"
+      wow.group = { size = 3 }
+      login()
+      receive({ t = "V", av = "1.2.0" }, "GUILD", "Thrall Earthson")
+      assert.is_false(chatContains("A new version"))
+      receive({ t = "V", av = "1.2.0" }, "PARTY", "Garrosh Hellscream")
+      assert.is_true(chatContains("A new version of GrudgeForever is available: 1.2.0 (you have 1.1.0)"))
+    end)
+
+    it("never lets group messages reach the guild sync", function()
+      withVersion("1.1.0")
+      wow.inGuild = true
+      wow.guildName = "Die Gilde"
+      wow.group = { size = 2 }
+      login()
+      fire("GUILD_ROSTER_UPDATE")
+      local delta = { t = "D", v = ns.Const.PROTO, from = "eeeeeeeeeeeeeeee", o = "eeeeeeeeeeeeeeee", rev = 1, base = 0,
+        lastChar = "Garrosh Hellscream", e = {
+          { key = "jaina proudmoore", name = "Jaina Proudmoore", list = "friendly", reason = "fake", created = 1,
+            updated = 2, rev = 1, deleted = false },
+        } }
+      receive(delta, "PARTY", "Garrosh Hellscream")
+      assert.equals(0, #ns.Core.store:Lookup("Jaina Proudmoore"))
+      receive(delta, "GUILD", "Garrosh Hellscream")
+      assert.equals(1, #ns.Core.store:Lookup("Jaina Proudmoore"))
+    end)
+  end)
+
   it("prints a warning when a listed player whispers", function()
     login()
     ns.Core.store:AddOrUpdate("friendly", "Thrall Earthson", "pöbelt")

@@ -18,6 +18,16 @@ local GAME_EVENTS = {
 -- this character had last time, for lookups only: sync stays off, so nothing about that guild can
 -- reach a guild the character may have joined meanwhile.
 local guildResolved = false
+local versionGuild -- the guild our version was announced to
+local wasInGroup = false
+local loggingIn = false
+local ANNOUNCE_DELAY = 5 -- addon messages sent while the client still logs in can get lost
+
+-- Announces our version on a channel; during login a moment later.
+local function announce(channel)
+  if not loggingIn then return Core.versionCheck:Announce(channel) end
+  C_Timer.After(ANNOUNCE_DELAY, function() Core.versionCheck:Announce(channel) end)
+end
 
 function Core.Print(text)
   DEFAULT_CHAT_FRAME:AddMessage(L["CHAT_PREFIX"] .. tostring(text))
@@ -109,6 +119,11 @@ local function updateGuild()
   store:SetCurrentCharacter(Core.char, guild)
   store:DropStaleGuildCaches()
   Core.sync:OnGuildChanged()
+  -- the version goes to every guild once, whatever the sync mode
+  if guild and guild ~= versionGuild then
+    versionGuild = guild
+    announce("GUILD")
+  end
   if guild then C_GuildInfo.GuildRoster() end
   refreshWindow()
 end
@@ -176,7 +191,21 @@ end
 
 -- Group ------------------------------------------------------------------------------
 
+-- The addon channel of the current group.
+local function groupChannel()
+  if IsInGroup(LE_PARTY_CATEGORY_INSTANCE or 2) then return "INSTANCE_CHAT" end
+  return IsInRaid() and "RAID" or "PARTY"
+end
+
+-- Announces the version once per joined group.
+local function announceToGroup()
+  local inGroup = IsInGroup() == true
+  if inGroup and not wasInGroup then announce(groupChannel()) end
+  wasInGroup = inGroup
+end
+
 local function onGroup()
+  announceToGroup()
   if not IsInGroup() then return Core.detect:OnGroup({}) end
   local prefix, count = "party", 4
   if IsInRaid() then prefix, count = "raid", GetNumGroupMembers() end
@@ -235,6 +264,7 @@ end
 
 local function onLogin(frame)
   if Core.ready then return end
+  loggingIn = true
   local sv, store = Core.sv, Core.store
   Core.char = Names.FromUnit("player")
   -- the character is known at once; its guild from last time stands in until the client loads it
@@ -251,7 +281,11 @@ local function onLogin(frame)
   LibStub("AceComm-3.0"):Embed(comm)
   Core.transport = ns.Transport.New({
     comm = comm,
-    onMessage = function(msg, sender)
+    onMessage = function(msg, sender, channel)
+      if msg.t == "V" then return Core.versionCheck:OnMessage(msg, sender, channel) end
+      -- the guild sync trusts guild members only: group messages never reach it
+      if channel ~= "GUILD" then return end
+      if msg.t == "H" then Core.versionCheck:OnVersion(msg.av, sender) end
       Core.sync:OnMessage(msg, sender)
       refreshWindow()
     end,
@@ -265,6 +299,15 @@ local function onLogin(frame)
     mode = function() return guildResolved and sv.settings.syncMode or "off" end,
     sv = sv,
     version = Core.version,
+  })
+  Core.versionCheck = ns.VersionCheck.New({
+    version = Core.version,
+    send = function(msg, channel) Core.transport:Send(msg, "NORMAL", channel) end,
+    after = function(seconds, fn) return C_Timer.NewTimer(seconds, fn) end,
+    random = math.random,
+    now = GetServerTime,
+    print = Core.Print,
+    me = function() return store:GetCurrentChar() or Core.char end,
   })
   Core.transport:Register()
   C_Timer.NewTicker(1, function() Core.transport:Flush() end)
@@ -287,6 +330,8 @@ local function onLogin(frame)
     updateGuild()
     sayHello()
   end)
+  announceToGroup()
+  loggingIn = false
   hintNameplates(sv)
   for _, event in ipairs(GAME_EVENTS) do frame:RegisterEvent(event) end
 end

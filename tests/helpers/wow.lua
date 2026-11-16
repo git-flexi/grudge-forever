@@ -83,7 +83,7 @@ function wow.reset()
   wow.roster = {}           -- GetGuildRosterInfo(i) names
   wow.rosterRequests = 0    -- C_GuildInfo.GuildRoster calls
   wow.cvars = {}            -- GetCVarBool values
-  wow.group = nil           -- nil (solo) or { raid = bool, size = n } with units in wow.units
+  wow.group = nil           -- nil (solo) or { raid = bool, instance = bool, size = n } with units in wow.units
   wow.sounds = {}           -- PlaySound / PlaySoundFile calls: { kit= } or { file= }
   wow.chat = {}             -- DEFAULT_CHAT_FRAME:AddMessage texts
   wow.tickers = {}          -- C_Timer.NewTicker calls: { interval=, fn= }
@@ -155,7 +155,13 @@ function wow.reset()
   _G.C_GuildInfo = { GuildRoster = function() wow.rosterRequests = wow.rosterRequests + 1 end }
   _G.GetCVarBool = function(name) return wow.cvars[name] == true end
 
-  _G.IsInGroup = function() return wow.group ~= nil end
+  -- category 1 (LE_PARTY_CATEGORY_HOME): a group of your own; 2 (LE_PARTY_CATEGORY_INSTANCE): an instance
+  -- group, { instance = true }; no category: either
+  _G.IsInGroup = function(category)
+    if category == 1 then return wow.group ~= nil and wow.group.instance ~= true end
+    if category == 2 then return wow.group ~= nil and wow.group.instance == true end
+    return wow.group ~= nil
+  end
   _G.IsInRaid = function() return wow.group ~= nil and wow.group.raid == true end
   _G.GetNumGroupMembers = function() return wow.group and wow.group.size or 0 end
 

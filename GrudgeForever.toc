@@ -17,6 +17,7 @@ Core\Store.lua
 Core\Codec.lua
 Core\ExportImport.lua
 Core\Sync.lua
+Core\VersionCheck.lua
 Core\Transport.lua
 Core\Alerts.lua
 Core\Options.lua

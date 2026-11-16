@@ -15,6 +15,7 @@ read_globals = {
   "PanelTemplates_EnableTab", "PanelTemplates_DisableTab",
   "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants", "StaticPopup_Show",
   "geterrorhandler", "C_FriendList", "hooksecurefunc", "GameTooltip", "C_AddOns",
+  "LE_PARTY_CATEGORY_HOME", "LE_PARTY_CATEGORY_INSTANCE",
 }
 
 -- addon-owned globals, plus client tables the addon registers into
