@@ -17,16 +17,21 @@ local HEADER_COLORS = {
 local LINE_COLOR = { 0.9, 0.9, 0.9 }
 local MUTED_COLOR = { 0.5, 0.5, 0.5 }
 
--- Reasons and names may come from other players, so their pipes are escaped.
+-- Reasons and names may come from other players, so their pipes are escaped. Names from older
+-- versions keep the casing they were typed in; they are shown capitalized.
+local function showName(name)
+  return Names.Escape(Names.Display(name) or name)
+end
+
 local function describe(match)
   local parts = {}
   local reason = match.entry and match.entry.reason
   if reason and reason ~= "" then parts[#parts + 1] = Names.Escape(reason) end
 
   local origin = {}
-  if match.by and match.by ~= "" then origin[#origin + 1] = L["TOOLTIP_BY"]:format(Names.Escape(match.by)) end
+  if match.by and match.by ~= "" then origin[#origin + 1] = L["TOOLTIP_BY"]:format(showName(match.by)) end
   local from = match.entry and match.entry.origin
-  if from and from ~= "" then origin[#origin + 1] = L["TOOLTIP_ADOPTED_FROM"]:format(Names.Escape(from)) end
+  if from and from ~= "" then origin[#origin + 1] = L["TOOLTIP_ADOPTED_FROM"]:format(showName(from)) end
   if #origin > 0 then parts[#parts + 1] = table.concat(origin, ORIGIN_SEPARATOR) end
 
   local text = table.concat(parts, SEPARATOR)

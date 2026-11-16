@@ -49,6 +49,31 @@ describe("Store", function()
     assert.equals(id, newStore(sv):GetPlayerId())
   end)
 
+  it("stores names capitalized and finds them in any casing", function()
+    store:AddOrUpdate("friendly", "spitz ohr", "grund")
+    local e = store:GetOwnEntry("friendly", "SPITZ OHR")
+    assert.equals("Spitz Ohr", e.name)
+    assert.equals("spitz ohr", e.key)
+    assert.equals(1, #store:Lookup("sPiTz-OhR", "friendly"))
+    store:AddOrUpdate("friendly", "SPITZ OHR", "neu")
+    assert.equals("neu", store:GetOwnEntry("friendly", "spitz ohr").reason)
+    assert.equals(1, #store:GetOwnEntries())
+  end)
+
+  it("capitalizes own names stored by older versions on load", function()
+    local old = { own = { rev = 3, entries = {
+      ["friendly:spitz ohr"] = { key = "spitz ohr", name = "spitz ohr", list = "friendly", reason = "r",
+        created = 1, updated = 2, rev = 3, deleted = false },
+    } }, myChars = { ["jaina proudmoore"] = { name = "jaina proudmoore" } } }
+    local loaded = newStore(old)
+    local e = loaded:GetOwnEntry("friendly", "Spitz Ohr")
+    assert.equals("Spitz Ohr", e.name)
+    -- a different casing is no change other players need to hear about
+    assert.equals(3, e.rev)
+    assert.equals(3, old.own.rev)
+    assert.equals("Jaina Proudmoore", old.myChars["jaina proudmoore"].name)
+  end)
+
   it("adds and updates an own entry and bumps the revision", function()
     local e = store:AddOrUpdate("friendly", "Thrall-Earthson", "pöbelt")
     assert.equals("thrall earthson", e.key)
@@ -192,6 +217,16 @@ describe("Store", function()
     assert.equals("meins", store:Lookup("Cairne Bloodhoof", "enemy")[1].entry.reason)
     assert.equals(1, store:Adopt("aaaaaaaaaaaaaaaa", "enemy:thrall earthson"))
     assert.equals("Sylvanas Windrunner", store:Lookup("Thrall Earthson", "enemy")[1].entry.origin)
+  end)
+
+  it("adopts names from older versions capitalized", function()
+    giveOwner("aaaaaaaaaaaaaaaa", 1, {
+      entry("enemy", "spitz ohr", 1, { name = "spitz ohr", origin = "garrosh hellscream" }),
+    })
+    assert.equals(1, store:Adopt("aaaaaaaaaaaaaaaa"))
+    local e = store:GetOwnEntry("enemy", "Spitz Ohr")
+    assert.equals("Spitz Ohr", e.name)
+    assert.equals("Garrosh Hellscream", e.origin)
   end)
 
   it("builds the entry id Adopt expects from a list and key", function()

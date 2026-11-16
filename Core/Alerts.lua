@@ -72,7 +72,7 @@ function Alerts.Summarize(matches)
   for _, m in ipairs(matches) do
     if not m.muted then
       reasons[#reasons + 1] = m.entry and m.entry.reason
-      creators[#creators + 1] = m.by
+      creators[#creators + 1] = Names.Display(m.by) or m.by
     end
   end
   return joinDistinct(reasons, "; "), joinDistinct(creators, ", ")

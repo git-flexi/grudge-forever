@@ -3,7 +3,7 @@ local ADDON, ns = ...
 -- Main window: one tab per list, one row per player (expandable to all entries of that player),
 -- a filter and name search on top, actions at the bottom. A third tab lists the guild members and
 -- who of them runs the addon.
-local Const, L, Names = ns.Const, ns.L, ns.Names
+local Const, L, Names, Sorting = ns.Const, ns.L, ns.Names, ns.Sorting
 
 ns.UI = ns.UI or {}
 local MainWindow = {}
@@ -15,20 +15,22 @@ local TABS = {
   { guild = true, key = "MW_TAB_GUILD" },
 }
 local GUILD_TAB = 3
+-- sort: the Sorting column a click on the header sorts by
 local COLUMNS = {
-  { key = "MW_COL_NAME", x = 8, width = 160 },
-  { key = "MW_COL_REASON", x = 172, width = 230 },
-  { key = "MW_COL_BY", x = 406, width = 140 },
-  { key = "MW_COL_DATE", x = 550, width = 76 },
-  { key = "MW_COL_STATUS", x = 630, width = 54 },
+  { key = "MW_COL_NAME", x = 8, width = 160, sort = "name" },
+  { key = "MW_COL_REASON", x = 172, width = 230, sort = "reason" },
+  { key = "MW_COL_BY", x = 406, width = 140, sort = "by" },
+  { key = "MW_COL_DATE", x = 550, width = 76, sort = "date" },
+  { key = "MW_COL_STATUS", x = 630, width = 54, sort = "status" },
 }
 local GUILD_COLUMNS = {
-  { key = "MW_COL_NAME", x = 8, width = 200 },
-  { key = "MW_COL_ONLINE", x = 212, width = 90 },
-  { key = "MW_COL_ADDON", x = 306, width = 70 },
-  { key = "MW_COL_VERSION", x = 380, width = 100 },
-  { key = "MW_COL_SEEN", x = 484, width = 160 },
+  { key = "MW_COL_NAME", x = 8, width = 200, sort = "name" },
+  { key = "MW_COL_ONLINE", x = 212, width = 90, sort = "online" },
+  { key = "MW_COL_ADDON", x = 306, width = 70, sort = "addon" },
+  { key = "MW_COL_VERSION", x = 380, width = 100, sort = "version" },
+  { key = "MW_COL_SEEN", x = 484, width = 160, sort = "seen" },
 }
+local SORT_ARROW = "Interface\\Buttons\\UI-SortArrow"
 local OWN_COLOR = { 1, 0.82, 0 }
 local OTHER_COLOR = { 1, 1, 1 }
 local ENTRY_COLOR = { 0.75, 0.75, 0.75 }
@@ -37,7 +39,14 @@ local SEPARATOR = " \194\183 " -- middle dot
 local frame
 local buttons = {}
 -- selKey: selected player; selOwner: owner of the selected entry row (nil = the player row)
-local state = { tab = 1, filter = "all", search = "", expanded = {}, selKey = nil, selOwner = nil }
+-- sort: column and direction, one for both list tabs and one for the guild tab
+local state = {
+  tab = 1, filter = "all", search = "", expanded = {}, selKey = nil, selOwner = nil,
+  sort = {
+    list = { column = Sorting.DEFAULT_PLAYERS.column, desc = Sorting.DEFAULT_PLAYERS.desc },
+    guild = { column = Sorting.DEFAULT_MEMBERS.column, desc = Sorting.DEFAULT_MEMBERS.desc },
+  },
+}
 local current = {} -- key -> visible matches of the shown list
 
 local function listKey()
@@ -50,6 +59,10 @@ end
 
 local function columns()
   return onGuildTab() and GUILD_COLUMNS or COLUMNS
+end
+
+local function sortState()
+  return state.sort[onGuildTab() and "guild" or "list"]
 end
 
 local function formatDate(ts)
@@ -76,14 +89,15 @@ local function buildItems()
     matches = visible(matches)
     if #matches > 0 and (not needle or key:find(needle, 1, true)) then
       current[key] = matches
-      players[#players + 1] = key
+      players[#players + 1] = { key = key, matches = matches }
     end
   end
-  table.sort(players)
+  local sort = sortState()
+  Sorting.SortPlayers(players, sort.column, sort.desc)
 
   local items = {}
-  for _, key in ipairs(players) do
-    local matches = current[key]
+  for _, player in ipairs(players) do
+    local key, matches = player.key, player.matches
     items[#items + 1] = { kind = "player", key = key, matches = matches }
     if state.expanded[key] and #matches > 1 then
       for _, m in ipairs(matches) do items[#items + 1] = { kind = "entry", key = key, match = m } end
@@ -98,6 +112,8 @@ local function buildGuildItems()
   local store = Core.store
   local members = ns.GuildMembers.Build(Core.GuildRoster(), store:GetOwners(),
     { chars = store:GetMyGuildChars(), version = Core.version, now = GetServerTime() })
+  local sort = sortState()
+  Sorting.SortMembers(members, sort.column, sort.desc)
   local needle = Names.Normalize(state.search)
   local items = {}
   for _, member in ipairs(members) do
@@ -152,18 +168,23 @@ end
 -- Names and reasons may come from other players: every one is escaped before it is shown.
 local Escape = Names.Escape
 
+-- Names stored by older versions keep the casing they were typed in; they are shown capitalized.
+local function showName(name)
+  return Escape(Names.Display(name) or name)
+end
+
 local function byText(match)
   local parts = {}
-  if match.by and match.by ~= "" then parts[#parts + 1] = Escape(match.by) end
+  if match.by and match.by ~= "" then parts[#parts + 1] = showName(match.by) end
   local origin = match.entry.origin
-  if origin and origin ~= "" then parts[#parts + 1] = L["TOOLTIP_ADOPTED_FROM"]:format(Escape(origin)) end
+  if origin and origin ~= "" then parts[#parts + 1] = L["TOOLTIP_ADOPTED_FROM"]:format(showName(origin)) end
   return table.concat(parts, SEPARATOR)
 end
 
 local function playerCells(item)
   local matches = item.matches
   local first = matches[1]
-  local name = Escape(first.entry.name)
+  local name = showName(first.entry.name)
   local reason = Escape(first.entry.reason)
   local by = byText(first)
   if #matches > 1 then
@@ -288,7 +309,7 @@ local function updateButtons()
   buttons.mute:SetText(L[(canMute and foreign.muted) and "MENU_UNMUTE" or "MENU_MUTE"])
   buttons.adopt:SetEnabled(foreignSel ~= nil and own == nil)
   buttons.adoptAll:SetEnabled(foreignSel ~= nil)
-  buttons.adoptAll:SetText(L["MW_ADOPT_ALL"]:format(foreignSel and Escape(foreignSel.by or "...") or "..."))
+  buttons.adoptAll:SetText(L["MW_ADOPT_ALL"]:format(foreignSel and foreignSel.by and showName(foreignSel.by) or "..."))
   updateSyncButton()
 end
 
@@ -335,6 +356,8 @@ end
 
 -- Frame -------------------------------------------------------------------------------
 
+local onHeaderClick
+
 local function selectTab(index)
   state.tab = index
   state.selKey, state.selOwner = nil, nil
@@ -350,6 +373,19 @@ local function button(text, width, onClick)
   b:SetText(text)
   b:SetScript("OnClick", onClick)
   return b
+end
+
+-- A click on the sorted column turns the order around, a click on another column sorts by it.
+onHeaderClick = function(index)
+  local col = columns()[index]
+  if not col then return end
+  local sort = sortState()
+  if sort.column == col.sort then
+    sort.desc = not sort.desc
+  else
+    sort.column, sort.desc = col.sort, Sorting.FirstDesc(col.sort)
+  end
+  MainWindow.Refresh()
 end
 
 -- Lays buttons out left to right from the first one's anchor.
@@ -427,11 +463,23 @@ local function createList()
   inset:SetPoint("TOPLEFT", 4, -60)
   inset:SetPoint("BOTTOMRIGHT", -6, 32)
 
+  -- column headers sort the list; updateLayout places and labels them per tab
   frame.headers = {}
-  for i, col in ipairs(COLUMNS) do
-    local header = inset:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    header:SetPoint("TOPLEFT", col.x + 4, -6)
-    header:SetText(L[col.key])
+  for i = 1, #COLUMNS do
+    local header = CreateFrame("Button", nil, inset)
+    header:SetHeight(16)
+    header:SetID(i)
+    local label = header:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    label:SetPoint("LEFT")
+    label:SetJustifyH("LEFT")
+    header.label = label
+    local arrow = header:CreateTexture(nil, "ARTWORK")
+    arrow:SetTexture(SORT_ARROW)
+    arrow:SetSize(9, 8)
+    arrow:SetPoint("LEFT", label, "RIGHT", 3, 0)
+    header.arrow = arrow
+    header:SetHighlightTexture("Interface\\Buttons\\UI-Listbox-Highlight2", "ADD")
+    header:SetScript("OnClick", function(self) onHeaderClick(self:GetID()) end)
     frame.headers[i] = header
   end
 
@@ -515,12 +563,23 @@ local function updateLayout()
   frame.filter:SetShown(not guild)
   for _, key in ipairs(ACTION_BUTTONS) do buttons[key]:SetShown(not guild) end
   frame.summary:SetShown(guild)
+  local sort = sortState()
   for i, col in ipairs(columns()) do
     local header = frame.headers[i]
     header:ClearAllPoints()
-    header:SetPoint("TOPLEFT", col.x + 4, -6)
+    header:SetPoint("TOPLEFT", col.x + 4, -4)
     header:SetWidth(col.width)
-    header:SetText(L[col.key])
+    header.label:SetText(L[col.key])
+    -- the arrow points down for newest/highest first, up for oldest/A first
+    local sorted = sort.column == col.sort
+    header.arrow:SetShown(sorted)
+    if sorted then
+      if sort.desc then
+        header.arrow:SetTexCoord(0, 0.5625, 0, 1)
+      else
+        header.arrow:SetTexCoord(0, 0.5625, 1, 0)
+      end
+    end
   end
 end
 

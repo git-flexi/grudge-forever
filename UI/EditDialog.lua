@@ -148,7 +148,7 @@ function EditDialog.Open(name, list, entry, reason, fixed)
   state.list = entry and entry.list or (ns.Store.IsList(list) and list) or Const.LIST_FRIENDLY
 
   frame:SetTitle(L[entry and "EDIT_TITLE_EDIT" or "EDIT_TITLE_ADD"])
-  frame.name:SetText(entry and entry.name or Names.Display(name) or "")
+  frame.name:SetText(Names.Display(entry and entry.name or name) or "")
   frame.name:SetEnabled(entry == nil)
   frame.reason:SetText(entry and entry.reason or reason or "")
   frame.error:SetText("")

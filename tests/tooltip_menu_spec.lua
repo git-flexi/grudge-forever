@@ -55,7 +55,8 @@ describe("Tooltip and UnitMenu", function()
 
     it("escapes pipes in remote reasons, creators and origins", function()
       local lines = ns.Tooltip.BuildLines({ foreign("a|cffb", "C|Hd", { origin = "E|Tf" }) })
-      assert.equals("a||cffb – by C||Hd · adopted from E||Tf", lines[2].text)
+      -- names are shown capitalized, the escaping holds
+      assert.equals("a||cffb – by C||hd · adopted from E||tf", lines[2].text)
     end)
 
     it("marks muted matches and greys them out", function()

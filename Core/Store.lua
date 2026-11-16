@@ -92,6 +92,14 @@ function Store.New(sv, deps)
   sv.mutes = sv.mutes or {}
   sv.settings = sv.settings or {}
 
+  -- older versions stored names as typed: show and keep them capitalized (same key, so no new revision)
+  for _, e in pairs(sv.own.entries) do
+    if type(e) == "table" then e.name = Names.Display(e.name) or e.name end
+  end
+  for _, c in pairs(sv.myChars) do
+    if type(c) == "table" then c.name = Names.Display(c.name) or c.name end
+  end
+
   if type(sv.playerId) ~= "string" or sv.playerId == "" then
     local id = {}
     for i = 1, ID_LENGTH do
@@ -326,8 +334,10 @@ function Store:Adopt(ownerId, id)
     local mine = own.entries[eid]
     if not e.deleted and not (mine and not mine.deleted) then
       own.entries[eid] = {
-        key = e.key, name = e.name, list = e.list, reason = e.reason, char = self:GetCurrentChar(),
-        origin = e.origin or owner.lastChar, originGuild = self:GetCurrentGuild(),
+        -- data from older versions may carry names as typed
+        key = e.key, name = Names.Display(e.name) or e.name, list = e.list, reason = e.reason,
+        char = self:GetCurrentChar(),
+        origin = Names.Display(e.origin or owner.lastChar), originGuild = self:GetCurrentGuild(),
         created = e.created or now, updated = now, rev = rev, deleted = false,
       }
       count = count + 1

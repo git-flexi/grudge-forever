@@ -457,6 +457,14 @@ describe("Addon load", function()
       return out
     end
 
+    -- The stub row of a player, found by its key: the order depends on the sort.
+    local function rowFor(key)
+      local list = rows()
+      for i, item in ipairs(items) do
+        if item.key == key then return list[i] end
+      end
+    end
+
     before_each(function()
       _G.CreateScrollBoxListLinearView = function()
         local view = wow.proxy()
@@ -484,15 +492,14 @@ describe("Addon load", function()
       SlashCmdList.GRUDGEFOREVER("")
       assert.is_true(frameNamed("GrudgeForeverMainWindow"):IsShown())
       assert.equals(2, #items)
-      local list = rows()
-      wow.fire(list[2], "OnClick") -- Thrall Earthson: own + foreign entry
+      wow.fire(rowFor("thrall earthson"), "OnClick") -- own + foreign entry
       assert.equals(4, #items)
       rows()
     end)
 
     it("adopts a foreign entry and mutes a player listed only by others", function()
       SlashCmdList.GRUDGEFOREVER("")
-      wow.fire(rows()[1], "OnClick") -- Sylvanas Windrunner, only a foreign entry
+      wow.fire(rowFor("sylvanas windrunner"), "OnClick") -- only a foreign entry
       wow.fire(buttonLabeled(ns.L["MENU_MUTE"]), "OnClick")
       assert.is_true(ns.Core.store:IsMuted("friendly", "Sylvanas Windrunner"))
       wow.fire(buttonLabeled(ns.L["MENU_UNMUTE"]), "OnClick")
@@ -511,13 +518,13 @@ describe("Addon load", function()
           created = 1, updated = 2, rev = 1, deleted = false },
       } })
       SlashCmdList.GRUDGEFOREVER("")
-      local list = rows()
-      local cells = list[1].cells
-      assert.equals("A||Hb C", cells[1]:GetText())
+      local row = rowFor("a|hb c")
+      local cells = row.cells
+      assert.equals("A||hb C", cells[1]:GetText())
       assert.equals("x||Ty", cells[2]:GetText())
       assert.truthy(cells[3]:GetText():find("Ev||cffil Guy", 1, true))
       assert.truthy(cells[3]:GetText():find("O||r P", 1, true))
-      wow.fire(list[1], "OnClick")
+      wow.fire(row, "OnClick")
       assert.is_not_nil(buttonLabeled(ns.L["MW_ADOPT_ALL"]:format("Ev||cffil Guy")))
     end)
 
@@ -546,7 +553,7 @@ describe("Addon load", function()
       local popup
       _G.StaticPopup_Show = function(which, text, _, data) popup = { which = which, text = text, data = data } end
       SlashCmdList.GRUDGEFOREVER("")
-      wow.fire(rows()[2], "OnClick") -- Thrall Earthson, own entry
+      wow.fire(rowFor("thrall earthson"), "OnClick") -- own entry
       wow.fire(buttonLabeled(ns.L["MW_EDIT"]), "OnClick")
       local dialog = frameNamed("GrudgeForeverEditDialog")
       local delete = lastButtonLabeled(ns.L["MW_DELETE"])
@@ -573,6 +580,58 @@ describe("Addon load", function()
       assert.is_true(dialog.list:IsEnabled())
     end)
 
+    it("sorts the list newest first and by a clicked column header", function()
+      SlashCmdList.GRUDGEFOREVER("")
+      local frame = frameNamed("GrudgeForeverMainWindow")
+      local function order()
+        local out = {}
+        for i, item in ipairs(items) do out[i] = item.key end
+        return out
+      end
+      -- own Thrall entry is newer than the passed-along Sylvanas entry
+      assert.same({ "thrall earthson", "sylvanas windrunner" }, order())
+      assert.is_true(frame.headers[4].arrow:IsShown())
+      assert.is_false(frame.headers[1].arrow:IsShown())
+
+      wow.fire(frame.headers[1], "OnClick")
+      assert.same({ "sylvanas windrunner", "thrall earthson" }, order())
+      assert.is_true(frame.headers[1].arrow:IsShown())
+      assert.is_false(frame.headers[4].arrow:IsShown())
+      wow.fire(frame.headers[1], "OnClick")
+      assert.same({ "thrall earthson", "sylvanas windrunner" }, order())
+
+      -- the order holds on the other list tab
+      wow.fire(frameNamed("GrudgeForeverMainWindowTab2"), "OnClick")
+      assert.is_true(frame.headers[1].arrow:IsShown())
+    end)
+
+    it("sorts the guild tab by a clicked column header, last seen first by default", function()
+      wow.roster = { { name = "Jaina-Proudmoore", online = true }, { name = "Thrall-Earthson", online = false },
+        { name = "Sylvanas-Windrunner", online = true } }
+      ns.Core.store:NoteMember("cccccccccccccccc", { "Thrall Earthson" }, "Thrall Earthson", "0.3.0")
+      SlashCmdList.GRUDGEFOREVER("")
+      local frame = frameNamed("GrudgeForeverMainWindow")
+      wow.fire(frameNamed("GrudgeForeverMainWindowTab3"), "OnClick")
+      assert.is_true(frame.headers[5].arrow:IsShown())
+      wow.fire(frame.headers[1], "OnClick")
+      local keys = {}
+      for i, item in ipairs(items) do keys[i] = item.member.key end
+      assert.same({ "jaina proudmoore", "sylvanas windrunner", "thrall earthson" }, keys)
+      -- the list tabs keep their own order
+      wow.fire(frameNamed("GrudgeForeverMainWindowTab1"), "OnClick")
+      assert.is_true(frame.headers[4].arrow:IsShown())
+    end)
+
+    it("shows names from older versions with capital first letters", function()
+      ns.Core.store:ApplyDelta({ o = "bbbbbbbbbbbbbbbb", rev = 1, base = 0, lastChar = "Garrosh Hellscream", chars = {},
+        e = { { key = "spitz ohr", name = "spitz ohr", list = "friendly", reason = "r", created = 1, updated = 9,
+          rev = 1, deleted = false } } })
+      SlashCmdList.GRUDGEFOREVER("")
+      local names = {}
+      for i, row in ipairs(rows()) do names[items[i].key] = row.cells[1]:GetText() end
+      assert.equals("Spitz Ohr", names["spitz ohr"])
+    end)
+
     it("lists the guild members and who runs the addon on the guild tab", function()
       wow.roster = { { name = "Jaina-Proudmoore", online = true }, { name = "Thrall-Earthson", online = false },
         { name = "Sylvanas-Windrunner", online = true } }
@@ -583,11 +642,12 @@ describe("Addon load", function()
       assert.equals("member", items[1].kind)
       local keys = {}
       for i, item in ipairs(items) do keys[i] = item.member.key end
-      assert.same({ "jaina proudmoore", "sylvanas windrunner", "thrall earthson" }, keys)
+      -- last seen first: Jaina (this character) and Thrall were both seen now, the online one first
+      assert.same({ "jaina proudmoore", "thrall earthson", "sylvanas windrunner" }, keys)
       local row = rows()[1]
       local frame = frameNamed("GrudgeForeverMainWindow")
       -- own columns: a full date fits into "last seen"
-      assert.equals(ns.L["MW_COL_SEEN"], frame.headers[5]:GetText())
+      assert.equals(ns.L["MW_COL_SEEN"], frame.headers[5].label:GetText())
       assert.is_true(row.cells[5]:GetWidth() >= 100)
       assert.equals(ns.L["MW_GUILD_SUMMARY"]:format(2, 3), frame.summary:GetText())
       assert.is_true(frame.summary:IsShown())
@@ -595,7 +655,7 @@ describe("Addon load", function()
 
       wow.fire(frameNamed("GrudgeForeverMainWindowTab1"), "OnClick")
       assert.equals("player", items[1].kind)
-      assert.equals(ns.L["MW_COL_STATUS"], frame.headers[5]:GetText())
+      assert.equals(ns.L["MW_COL_STATUS"], frame.headers[5].label:GetText())
       row = rows()[1]
       assert.equals(54, row.cells[5]:GetWidth())
       assert.is_false(frame.summary:IsShown())
@@ -637,7 +697,7 @@ describe("Addon load", function()
 
     it("opens the edit, export and import dialogs from its buttons", function()
       SlashCmdList.GRUDGEFOREVER("")
-      wow.fire(rows()[2], "OnClick")
+      wow.fire(rowFor("thrall earthson"), "OnClick")
       wow.fire(buttonLabeled(ns.L["MW_EDIT"]), "OnClick")
       assert.is_true(frameNamed("GrudgeForeverEditDialog"):IsShown())
       wow.fire(buttonLabeled(ns.L["MW_ADD"]), "OnClick")

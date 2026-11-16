@@ -1,5 +1,10 @@
 package-as: GrudgeForever
 
+# the changelog CurseForge shows: written for players, replaced with every release
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
 ignore:
   - tests
   - docs
