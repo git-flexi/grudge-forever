@@ -26,6 +26,9 @@ local LIST_KEYS = { [Const.LIST_FRIENDLY] = "ALERT_LIST_FRIENDLY", [Const.LIST_E
 -- Chat colors per placeholder (AARRGGBB); placeholders without one stay in the chat color.
 Alerts.CHAT_COLORS = { list = "ffff8040", name = "ffffd100", reason = "ffffffff", by = "ff40c0ff" }
 
+-- Banner colors (AARRGGBB): literal values, since Core must not depend on UI/Skin.
+Alerts.BANNER_COLORS = { list = "ffff6a4a", name = "ffffffff", by = "ff8fb7e0" }
+
 -- Placeholders: English names plus the German aliases used by the German default text.
 local ALIASES = { grund = "reason", von = "by", anlass = "trigger", liste = "list" }
 
@@ -48,7 +51,8 @@ end
 function Alerts.Compose(list, s, vars)
   local template = (s.text and s.text ~= "") and s.text or L["DEFAULT_TEXT"]
   vars.list = L[LIST_KEYS[list] or list]
-  return Alerts.Render(template, vars), L["CHAT_WARNING"] .. Alerts.Render(template, vars, Alerts.CHAT_COLORS)
+  local banner = Alerts.Render(template, vars, Alerts.BANNER_COLORS)
+  return banner, L["CHAT_WARNING"] .. Alerts.Render(template, vars, Alerts.CHAT_COLORS)
 end
 
 -- Joins distinct non-empty values, at most MAX_SHOWN, followed by " +N" for the rest.

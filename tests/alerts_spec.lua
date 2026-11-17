@@ -1,5 +1,9 @@
 local wow = require("tests.helpers.wow")
 
+local function plain(text)
+  return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+end
+
 describe("Alerts", function()
   local ns, clock, settings, calls, alerts
 
@@ -60,7 +64,8 @@ describe("Alerts", function()
     it("escapes remote reasons and creators in banner and chat", function()
       settings.lists.friendly.chat = true
       assert.is_true(alerts:Fire("friendly", "Thrall Earthson", { match("Ev|cffil", "x|ry") }, "whisper"))
-      assert.equals("Thrall Earthson " .. ns.L["TRIGGER_WHISPER"] .. ": x||ry (Ev||cffil)", calls.banner[1].text)
+      assert.equals("|cffffffffThrall Earthson|r " .. ns.L["TRIGGER_WHISPER"] .. ": x||ry (|cff8fb7e0Ev||cffil|r)",
+        calls.banner[1].text)
       assert.truthy(calls.chat[1]:find("x||ry", 1, true))
       assert.truthy(calls.chat[1]:find("Ev||cffil", 1, true))
     end)
@@ -68,10 +73,6 @@ describe("Alerts", function()
 
   describe("chat colors", function()
     local function one() return { match("Jaina", "pöbelt") } end
-
-    local function plain(text)
-      return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
-    end
 
     it("wraps filled values in their color and leaves others plain", function()
       local text = ns.Alerts.Render("{name}: {reason} ({by})", { name = "A", reason = "r|x", by = "B" },
@@ -85,7 +86,7 @@ describe("Alerts", function()
       local line = calls.chat[1]
       assert.equals(1, line:find(ns.L["CHAT_WARNING"], 1, true))
       assert.truthy(line:find("|cffffd100Thrall Earthson|r", 1, true))
-      assert.equals(plain(ns.L["CHAT_WARNING"]) .. calls.banner[1].text, plain(line))
+      assert.equals(plain(ns.L["CHAT_WARNING"]) .. plain(calls.banner[1].text), plain(line))
     end)
 
     it("fills the list label and reads like the default sentence", function()
@@ -93,14 +94,28 @@ describe("Alerts", function()
       settings.lists.friendly.text = ns.L["DEFAULT_TEXT"]
       assert.is_true(alerts:Fire("friendly", "Spitz Ohr", { match("Sacricola Umbrae", "Blabla") }, "group"))
       assert.equals("Blacklisted player Spitz Ohr is in your group! Reason: Blabla (by Sacricola Umbrae)",
-        calls.banner[1].text)
-      assert.equals("WARNING: " .. calls.banner[1].text, plain(calls.chat[1]))
+        plain(calls.banner[1].text))
+      assert.equals("WARNING: " .. plain(calls.banner[1].text), plain(calls.chat[1]))
     end)
 
     it("labels enemies as KOS targets, also through the German alias", function()
       settings.lists.enemy.text = "{liste} {name}"
       assert.is_true(alerts:Fire("enemy", "Garrosh Hellscream", one(), "sight"))
-      assert.equals(ns.L["ALERT_LIST_ENEMY"] .. " Garrosh Hellscream", calls.banner[1].text)
+      assert.equals(ns.L["ALERT_LIST_ENEMY"] .. " Garrosh Hellscream", plain(calls.banner[1].text))
+    end)
+  end)
+
+  describe("banner colors", function()
+    it("colors the list, name and by in the banner text", function()
+      local banner = ns.Alerts.Compose("friendly", { text = "{list} {name} ({by})" }, { name = "A", by = "B" })
+      assert.truthy(banner:find("|cffffffffA|r", 1, true))
+      assert.truthy(banner:find("|cff8fb7e0B|r", 1, true))
+      assert.truthy(banner:find("|cffff6a4a", 1, true))
+    end)
+
+    it("keeps pipes in a remote reason escaped in the banner", function()
+      local banner = ns.Alerts.Compose("friendly", { text = "{reason}" }, { reason = "r|x" })
+      assert.equals("r||x", banner)
     end)
   end)
 
@@ -155,7 +170,7 @@ describe("Alerts", function()
       assert.is_true(alerts:Fire("friendly", "Thrall Earthson", one(), "whisper"))
       assert.equals(1, #calls.banner)
       assert.equals("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8", calls.banner[1].icon)
-      assert.equals("Thrall Earthson is whispering you: pöbelt (Jaina)", calls.banner[1].text)
+      assert.equals("Thrall Earthson is whispering you: pöbelt (Jaina)", plain(calls.banner[1].text))
       assert.same({ { kind = "kit", id = 8959 } }, calls.sound)
       assert.equals(0, #calls.chat)
     end)
@@ -169,7 +184,7 @@ describe("Alerts", function()
       settings.lists.friendly.text = nil
       alerts:Fire("friendly", "Thrall Earthson", one(), "invite")
       assert.equals("Blacklisted player Thrall Earthson is inviting you! Reason: pöbelt (by Jaina)",
-        calls.banner[1].text)
+        plain(calls.banner[1].text))
     end)
 
     it("localizes trigger text and default template in German", function()
@@ -183,7 +198,7 @@ describe("Alerts", function()
       })
       a:Fire("friendly", "Thrall Earthson", one(), "group")
       assert.equals("Blacklist-Spieler Thrall Earthson ist in deiner Gruppe! Grund: pöbelt (von Jaina)",
-        calls.banner[1].text)
+        plain(calls.banner[1].text))
     end)
 
     it("applies a cooldown per player of the configured length", function()
@@ -290,7 +305,7 @@ describe("Banner", function()
   end)
 
   it("loads and tolerates calls when CreateFrame does not exist", function()
-    wow.load(wowEnv, "UI/Banner.lua")
+    wow.load(wowEnv, "UI/Skin.lua", "UI/Banner.lua")
     assert.is_function(wowEnv.Banner.Show)
     assert.has_no.errors(function()
       wowEnv.Banner.SetLocked(true)
@@ -304,7 +319,7 @@ describe("Banner", function()
     _G.UIParent = newFrame()
     _G.CreateFrame = function() created = created + 1; return newFrame() end
     _G.GrudgeForeverDB = {}
-    wow.load(wowEnv, "UI/Banner.lua")
+    wow.load(wowEnv, "UI/Skin.lua", "UI/Banner.lua")
     assert.equals(0, created)
     wowEnv.Banner.Show("icon", "text")
     assert.is_true(created > 0)
@@ -316,40 +331,69 @@ describe("Banner", function()
     assert.is_nil(GrudgeForeverDB.settings and GrudgeForeverDB.settings.banner)
   end)
 
-  it("wraps long text to at most two lines and uses the icon's room when there is no icon", function()
-    -- recording stand-in: calls are logged per region, child regions are separate recorders
-    local regions = {}
-    local function recorder(kind)
-      local r = { kind = kind, calls = {} }
-      regions[#regions + 1] = r
-      return setmetatable(r, { __index = function(_, name)
-        if name == "CreateFontString" then return function() return recorder("FontString") end end
-        if name == "CreateTexture" then return function() return recorder("Texture") end end
-        if name == "CreateAnimationGroup" then return function() return recorder("AnimationGroup") end end
-        if name == "CreateAnimation" then return function() return recorder("Animation") end end
-        return function(_, ...)
-          r.calls[#r.calls + 1] = { name = name, args = { ... } }
-          return r
+  -- Recording stand-in: calls are logged per region, child regions are separate recorders.
+  local regions
+  local function recorder(kind)
+    local r = { kind = kind, calls = {}, children = {} }
+    regions[#regions + 1] = r
+    return setmetatable(r, { __index = function(_, name)
+      if name == "CreateFontString" then return function() return recorder("FontString") end end
+      if name == "CreateTexture" then return function() return recorder("Texture") end end
+      if name == "CreateAnimationGroup" then return function() return recorder("AnimationGroup") end end
+      if name == "CreateAnimation" then
+        return function(_, type)
+          local child = recorder("Animation")
+          child.type = type
+          r.children[#r.children + 1] = child
+          return child
         end
-      end })
+      end
+      return function(_, ...)
+        r.calls[#r.calls + 1] = { name = name, args = { ... } }
+        return r
+      end
+    end })
+  end
+  local function last(r, name)
+    for i = #r.calls, 1, -1 do
+      if r.calls[i].name == name then return r.calls[i].args end
     end
-    local function last(r, name)
-      for i = #r.calls, 1, -1 do
-        if r.calls[i].name == name then return r.calls[i].args end
+  end
+  local function count(r, name)
+    local n = 0
+    for _, c in ipairs(r.calls) do
+      if c.name == name then n = n + 1 end
+    end
+    return n
+  end
+  local function anchorsSinceClear(r)
+    local out = {}
+    for _, c in ipairs(r.calls) do
+      if c.name == "ClearAllPoints" then out = {} elseif c.name == "SetPoint" then out[#out + 1] = c.args end
+    end
+    return out
+  end
+  -- The animation group whose Alpha child fades from `from`.
+  local function groupFading(from)
+    for _, r in ipairs(regions) do
+      if r.kind == "AnimationGroup" then
+        for _, child in ipairs(r.children) do
+          local a = last(child, "SetFromAlpha")
+          if child.type == "Alpha" and a and a[1] == from then return r end
+        end
       end
     end
-    local function anchorsSinceClear(r)
-      local out = {}
-      for _, c in ipairs(r.calls) do
-        if c.name == "ClearAllPoints" then out = {} elseif c.name == "SetPoint" then out[#out + 1] = c.args end
-      end
-      return out
-    end
+  end
+  local function setupRecorders()
+    regions = {}
     _G.UIParent = recorder("UIParent")
     _G.CreateFrame = function() return recorder("Frame") end
     _G.GrudgeForeverDB = {}
-    wow.load(wowEnv, "UI/Banner.lua")
+    wow.load(wowEnv, "UI/Skin.lua", "UI/Banner.lua")
+  end
 
+  it("wraps long text to at most two lines and uses the icon's room when there is no icon", function()
+    setupRecorders()
     wowEnv.Banner.Show("icon", "text")
     local text
     for _, r in ipairs(regions) do
@@ -364,5 +408,28 @@ describe("Banner", function()
     anchors = anchorsSinceClear(text)
     assert.equals("LEFT", anchors[1][1])
     assert.is_number(anchors[1][2]) -- offset from the banner's own left edge
+  end)
+
+  it("plays the intro animation on every show", function()
+    setupRecorders()
+    wowEnv.Banner.Show("icon", "one")
+    wowEnv.Banner.Show("icon", "two")
+    local intro = groupFading(0)
+    assert.is_not_nil(intro)
+    assert.equals(2, count(intro, "Play"))
+    assert.is_true(count(intro, "Stop") >= 2)
+  end)
+
+  it("a second alert keeps the banner up after the first one's timer", function()
+    setupRecorders()
+    wowEnv.Banner.Show("icon", "A")
+    local half = wow.timers
+    wow.timers = {}
+    wowEnv.Banner.Show("icon", "B")
+    wow.timers = { half[1], wow.timers[1] }
+    wow.runTimers()
+    local fade = groupFading(1)
+    assert.is_not_nil(fade)
+    assert.equals(1, count(fade, "Play"))
   end)
 end)
