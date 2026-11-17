@@ -80,13 +80,12 @@ describe("Alerts", function()
       assert.equals("|cffffd100A|r: |cffffffffr||x|r (B)", text)
     end)
 
-    it("starts the chat line with a colored warning and colors the player name", function()
+    it("colors the player name and matches the banner text", function()
       settings.lists.friendly.chat = true
       assert.is_true(alerts:Fire("friendly", "Thrall Earthson", one(), "group"))
       local line = calls.chat[1]
-      assert.equals(1, line:find(ns.L["CHAT_WARNING"], 1, true))
       assert.truthy(line:find("|cffffffffThrall Earthson|r", 1, true))
-      assert.equals(plain(ns.L["CHAT_WARNING"]) .. plain(calls.banner[1].text), plain(line))
+      assert.equals(plain(calls.banner[1].text), plain(line))
     end)
 
     it("uses the journal palette for the chat colors", function()

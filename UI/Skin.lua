@@ -28,13 +28,17 @@ end
 local C = Skin.COLORS
 
 local function rgba(color, a) return { r = color.r, g = color.g, b = color.b, a = a or 1 } end
+Skin.RGBA = rgba
 
--- Vertical or horizontal gradient from `from` to `to` ({ r, g, b, a }); flat `from` when unsupported.
+-- Vertical (top to bottom) or horizontal (left to right) gradient from `from` to `to` ({ r, g, b, a }).
+-- Flat `from` when unsupported.
+-- Needs the 10.0+ SetGradient(orientation, colorA, colorB) signature, which the Forever client has.
 function Skin.Gradient(texture, orientation, from, to)
   if _G.CreateColor and texture.SetGradient then
     texture:SetColorTexture(1, 1, 1, 1)
-    texture:SetGradient(orientation, CreateColor(from.r, from.g, from.b, from.a),
-      CreateColor(to.r, to.g, to.b, to.a))
+    local a, b = from, to
+    if orientation == "VERTICAL" then a, b = to, from end -- SetGradient puts its first color at the bottom
+    texture:SetGradient(orientation, CreateColor(a.r, a.g, a.b, a.a), CreateColor(b.r, b.g, b.b, b.a))
   else
     texture:SetColorTexture(from.r, from.g, from.b, from.a)
   end
@@ -54,7 +58,8 @@ end
 -- Styles a BackdropTemplate frame; returns the content frame below the title bar.
 function Skin.Window(frame, title)
   local bg = frame:CreateTexture(nil, "BACKGROUND")
-  bg:SetAllPoints(frame)
+  bg:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
+  bg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, 1)
   Skin.Gradient(bg, "VERTICAL", rgba(C.bgTop), rgba(C.bgBottom))
 
   setBorder(frame, C.line)
@@ -87,10 +92,8 @@ function Skin.Window(frame, title)
   text:SetText(title)
   frame.TitleText = text
 
-  local close
-  if _G.UIPanelCloseButton ~= nil then
-    close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-  else
+  local ok, close = pcall(CreateFrame, "Button", nil, frame, "UIPanelCloseButton")
+  if not ok or not close then
     close = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     close:SetSize(22, 22)
     close:SetText("X")
@@ -109,6 +112,7 @@ end
 -- Darker inset panel with a divider-colored border.
 function Skin.Panel(parent)
   local panel = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+  panel:SetFrameLevel(parent:GetFrameLevel()) -- keeps the parent's text above the panel's backdrop
   setBorder(panel, C.divider, 0.35)
   return panel
 end
@@ -118,7 +122,7 @@ Tabs.__index = Tabs
 
 local function paint(self, i)
   local button = self.buttons[i]
-  local fs = button:GetFontString()
+  local fs = button.label
   if not button:IsEnabled() then
     fs:SetTextColor(C.muted.r, C.muted.g, C.muted.b, 0.5)
   elseif i == self.active then
@@ -130,7 +134,7 @@ local function paint(self, i)
 end
 
 local function fit(button)
-  local width = button:GetTextWidth()
+  local width = button.label:GetStringWidth()
   if type(width) ~= "number" then width = 0 end
   button:SetWidth(width + TAB_PADDING)
 end
@@ -161,8 +165,15 @@ function Tabs:GetTab(i) return self.buttons[i] end
 function Skin.Tabs(parent, namePrefix, labels, onSelect)
   local self = setmetatable({ buttons = {}, active = nil }, Tabs)
   for i, label in ipairs(labels) do
-    local button = CreateFrame("Button", namePrefix .. i, parent, "UIPanelButtonTemplate")
+    local button = CreateFrame("Button", namePrefix .. i, parent)
     button:SetHeight(24)
+    local fs = button:CreateFontString(nil, "OVERLAY", Skin.Font("GameFontNormal"))
+    fs:SetPoint("CENTER", button, "CENTER", 0, 0)
+    button:SetFontString(fs)
+    button.label = fs
+    local wash = button:CreateTexture(nil, "HIGHLIGHT")
+    wash:SetAllPoints(button)
+    wash:SetColorTexture(C.gold.r, C.gold.g, C.gold.b, 0.12)
     button:SetText(label)
     fit(button)
     if i == 1 then
@@ -211,7 +222,7 @@ function Skin.Row(row)
 
   local highlight = row:CreateTexture(nil, "HIGHLIGHT")
   highlight:SetAllPoints(row)
-  highlight:SetColorTexture(1, 1, 1, 0.06)
+  Skin.Gradient(highlight, "HORIZONTAL", rgba(C.gold, 0.10), rgba(C.gold, 0.02))
   row.highlight = highlight
 end
 

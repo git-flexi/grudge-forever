@@ -51,9 +51,60 @@ describe("Skin", function()
 
   it("Tabs resize to their text", function()
     local tabs = Skin.Tabs(UIParent, "P", { "A", "B", "C" }, function() end)
-    rawset(tabs:GetTab(2), "GetTextWidth", function() return 140 end)
+    rawset(tabs:GetTab(2).label, "GetStringWidth", function() return 140 end)
     tabs:SetTabText(2, "Gegnerische Fraktion · 123")
     assert.equals(168, tabs:GetTab(2):GetWidth())
+  end)
+
+  it("Tabs keep their colors after hovering", function()
+    local tabs = Skin.Tabs(UIParent, "P", { "A", "B" }, function() end)
+    local last
+    rawset(tabs:GetTab(2).label, "SetTextColor", function(_, r, g, b, a) last = { r = r, g = g, b = b, a = a } end)
+    tabs:SetTab(1)
+    local muted = Skin.COLORS.muted
+    assert.same({ r = muted.r, g = muted.g, b = muted.b, a = 1 }, last)
+    last = nil
+    wow.fire(tabs:GetTab(2), "OnEnter")
+    wow.fire(tabs:GetTab(2), "OnLeave")
+    assert.is_nil(last) -- hover never repaints the text
+    tabs:SetTab(2)
+    assert.equals(Skin.COLORS.gold.r, last.r)
+  end)
+
+  it("Gradient passes VERTICAL colors bottom first and HORIZONTAL left first", function()
+    local texture = wow.proxy()
+    local calls = {}
+    rawset(texture, "SetGradient", function(_, o, a, b) table.insert(calls, { o, a, b }) end)
+    local top, bottom = { r = 1, g = 0, b = 0, a = 1 }, { r = 0, g = 0, b = 1, a = 0 }
+    Skin.Gradient(texture, "VERTICAL", top, bottom)
+    Skin.Gradient(texture, "HORIZONTAL", top, bottom)
+    assert.same({ "VERTICAL", bottom, top }, calls[1])
+    assert.same({ "HORIZONTAL", top, bottom }, calls[2])
+  end)
+
+  it("Panel sits at its parent's frame level", function()
+    local level
+    local create = CreateFrame
+    _G.CreateFrame = function(...)
+      local frame = create(...)
+      rawset(frame, "SetFrameLevel", function(_, n) level = n end)
+      return frame
+    end
+    local parent = create("Frame", nil, UIParent)
+    rawset(parent, "GetFrameLevel", function() return 7 end)
+    Skin.Panel(parent)
+    _G.CreateFrame = create
+    assert.equals(7, level)
+  end)
+
+  it("keeps the alert palette in sync with the skin", function()
+    wow.load(ns, "Core/Alerts.lua")
+    local Alerts = ns.Alerts
+    assert.equals(Skin.HEX.alert, Alerts.BANNER_COLORS.list)
+    assert.equals(Skin.HEX.by, Alerts.BANNER_COLORS.by)
+    assert.equals(Skin.HEX.alert, Alerts.CHAT_COLORS.list)
+    assert.equals(Skin.HEX.by, Alerts.CHAT_COLORS.by)
+    assert.equals(Skin.HEX.text, Alerts.CHAT_COLORS.reason)
   end)
 
   it("SetRowState shows zebra on odd rows and the selection when selected", function()

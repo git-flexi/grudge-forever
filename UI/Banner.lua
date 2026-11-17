@@ -48,7 +48,7 @@ local function savePosition()
   applyPosition()
 end
 
-local function rgba(color, alpha) return { r = color.r, g = color.g, b = color.b, a = alpha } end
+local rgba = Skin.RGBA
 
 -- Gold hairline along one edge: two halves fading in from the ends toward the center.
 local function createLine(edge)
@@ -89,7 +89,7 @@ local function create()
     savePosition()
   end)
 
-  local black = { r = 0, g = 0, b = 0 }
+  local black = { r = 0, g = 0, b = 0, a = 1 }
   frame.bgLeft = frame:CreateTexture(nil, "BACKGROUND")
   frame.bgLeft:SetPoint("TOPLEFT")
   frame.bgLeft:SetPoint("BOTTOMLEFT")
