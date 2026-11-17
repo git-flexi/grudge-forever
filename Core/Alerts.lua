@@ -24,7 +24,7 @@ local TRIGGER_KEYS = {
 local LIST_KEYS = { [Const.LIST_FRIENDLY] = "ALERT_LIST_FRIENDLY", [Const.LIST_ENEMY] = "ALERT_LIST_ENEMY" }
 
 -- Chat colors per placeholder (AARRGGBB); placeholders without one stay in the chat color.
-Alerts.CHAT_COLORS = { list = "ffff8040", name = "ffffd100", reason = "ffffffff", by = "ff40c0ff" }
+Alerts.CHAT_COLORS = { list = "ffff6a4a", name = "ffffffff", reason = "ffe8dcc2", by = "ff8fb7e0" }
 
 -- Banner colors (AARRGGBB): literal values, since Core must not depend on UI/Skin.
 Alerts.BANNER_COLORS = { list = "ffff6a4a", name = "ffffffff", by = "ff8fb7e0" }

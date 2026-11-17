@@ -270,8 +270,23 @@ describe("Addon load", function()
     login()
     ns.Core.store:AddOrUpdate("friendly", "Thrall Earthson", "pöbelt")
     fire("CHAT_MSG_WHISPER", "hi", "Thrall-Earthson")
-    assert.is_true(chatContains("WARNING: Blacklisted player Thrall Earthson is whispering you! Reason: pöbelt"))
+    assert.is_true(chatContains(
+      "GrudgeForever \194\183 Blacklisted player Thrall Earthson is whispering you! Reason: pöbelt"))
     assert.equals(1, #wow.sounds)
+  end)
+
+  it("puts the gold prefix exactly once in front of an alert chat line", function()
+    login()
+    ns.Core.store:AddOrUpdate("friendly", "Thrall Earthson", "pöbelt")
+    fire("CHAT_MSG_WHISPER", "hi", "Thrall-Earthson")
+    local count = 0
+    for _, line in ipairs(wow.chat) do
+      if line:find("Thrall Earthson", 1, true) then
+        local _, n = line:gsub("|cfff0c45aGrudgeForever|r", "")
+        count = count + n
+      end
+    end
+    assert.equals(1, count)
   end)
 
   it("warns about a listed enemy that comes into sight", function()
@@ -279,7 +294,7 @@ describe("Addon load", function()
     ns.Core.store:AddOrUpdate("enemy", "Garrosh Hellscream", "gankt")
     wow.units.nameplate1 = { name = "Garrosh", surname = "Hellscream", player = true, faction = "Horde" }
     fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
-    assert.is_true(chatContains("WARNING: KOS target Garrosh Hellscream is nearby! Reason: gankt"))
+    assert.is_true(chatContains("GrudgeForever \194\183 KOS target Garrosh Hellscream is nearby! Reason: gankt"))
   end)
 
   it("warns once about a listed player in the group, but not about the own character", function()
