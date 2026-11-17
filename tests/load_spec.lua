@@ -337,10 +337,10 @@ describe("Addon load", function()
     wow.guildName = "Neue Gilde"
     fire("PLAYER_GUILD_UPDATE", "player")
     assert.equals("Neue Gilde", ns.Core.store:GetCurrentGuild())
-    assert.is_nil(GrudgeForeverDB.guilds["Die Gilde"])
+    assert.same({}, ns.Core.store:GetOwners())
   end)
 
-  it("drops the guild cache of a guild the character left", function()
+  it("keeps the guild cache of a guild the character left for a while, but stops using it", function()
     _G.GrudgeForeverDB = {
       myChars = { ["jaina proudmoore"] = { name = "Jaina Proudmoore", guild = "Die Gilde", lastSeen = 1 } },
       guilds = { ["Die Gilde"] = { owners = {} } },
@@ -348,7 +348,8 @@ describe("Addon load", function()
     wow.inGuild = false
     login()
     assert.is_nil(ns.Core.store:GetCurrentGuild())
-    assert.is_nil(GrudgeForeverDB.guilds["Die Gilde"])
+    assert.same({}, ns.Core.store:GetOwners())
+    assert.is_table(GrudgeForeverDB.guilds["Die Gilde"])
   end)
 
   it("says hello once on the first roster update, complete or not", function()

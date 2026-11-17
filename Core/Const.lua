@@ -5,6 +5,7 @@ local Const = {
   LIST_ENEMY = "enemy",
   REASON_MAX = 80,
   TOMBSTONE_TTL = 90 * 86400,
+  GUILD_CACHE_TTL = 30 * 86400,
   ALERT_COOLDOWN = 300,
   SYNC_COOLDOWN = 300,
   PREFIX = "GrudgeFvr",

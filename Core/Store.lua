@@ -519,13 +519,19 @@ function Store:PruneByRoster(rosterKeys, complete)
   return removed
 end
 
+-- Drops the caches of guilds none of our characters has been in for GUILD_CACHE_TTL. Not at once: the
+-- client may briefly report "no guild" at login, and the cache holds data of members who are offline.
 function Store:DropStaleGuildCaches()
-  local mine = {}
+  local mine, now = {}, self.deps.now()
   for _, c in pairs(self.sv.myChars) do
     if c.guild then mine[c.guild] = true end
   end
-  for guild in pairs(self.sv.guilds) do
-    if not mine[guild] then self.sv.guilds[guild] = nil end
+  for guild, g in pairs(self.sv.guilds) do
+    if mine[guild] or not Store.IsCount(g.seen) then
+      g.seen = now
+    elseif now - g.seen > Const.GUILD_CACHE_TTL then
+      self.sv.guilds[guild] = nil
+    end
   end
 end
 

@@ -559,8 +559,29 @@ describe("Store", function()
     store:SetCurrentCharacter("Arthas Menethil", GUILD)
     sv.myChars["jaina proudmoore"].guild = nil
     store:DropStaleGuildCaches()
+    -- kept for a while: the client may briefly report "no guild" at login
+    assert.is_table(sv.guilds["Andere Gilde"])
+    clock = clock + 31 * DAY
+    store:DropStaleGuildCaches()
     assert.is_table(sv.guilds[GUILD])
     assert.is_nil(sv.guilds["Andere Gilde"])
+  end)
+
+  it("keeps the guild cache through a brief no-guild reading at login", function()
+    giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) })
+    store:SetCurrentCharacter("Arthas Menethil", nil)
+    store:DropStaleGuildCaches()
+    store:SetCurrentCharacter("Arthas Menethil", GUILD)
+    store:DropStaleGuildCaches()
+    assert.equals(1, #store:Lookup("Thrall Earthson"))
+  end)
+
+  it("keeps a cache from older versions that has no timestamp yet", function()
+    giveOwner("aaaaaaaaaaaaaaaa", 1, { entry("enemy", "Thrall Earthson", 1) })
+    sv.guilds[GUILD].seen = nil
+    store:SetCurrentCharacter("Arthas Menethil", nil)
+    store:DropStaleGuildCaches()
+    assert.is_table(sv.guilds[GUILD])
   end)
 
   it("prunes only tombstones older than 90 days", function()
