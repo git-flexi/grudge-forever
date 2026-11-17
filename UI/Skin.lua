@@ -112,7 +112,6 @@ end
 -- Darker inset panel with a divider-colored border.
 function Skin.Panel(parent)
   local panel = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-  panel:SetFrameLevel(parent:GetFrameLevel()) -- keeps the parent's text above the panel's backdrop
   setBorder(panel, C.divider, 0.35)
   return panel
 end

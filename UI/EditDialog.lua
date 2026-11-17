@@ -51,9 +51,10 @@ function EditDialog.ConfirmDelete(list, name)
   StaticPopup_Show("GRUDGEFOREVER_DELETE", Names.Escape(name), nil, { list = list, name = name })
 end
 
+-- Texts live on the inset panel (a child frame drawn above the window), so its dark fill cannot dim them.
 local function label(text, y)
-  local fs = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  fs:SetPoint("TOPLEFT", LABEL_X, y)
+  local fs = frame.inset:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  fs:SetPoint("TOPLEFT", frame, "TOPLEFT", LABEL_X, y)
   fs:SetText(text)
   return fs
 end
@@ -92,6 +93,7 @@ local function create()
   frame:SetScript("OnDragStart", frame.StartMoving)
   frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
   local inset = Skin.Panel(frame)
+  frame.inset = inset
   inset:SetPoint("TOPLEFT", frame.content, "TOPLEFT", 4, 0)
   inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 32)
   table.insert(UISpecialFrames, "GrudgeForeverEditDialog")
@@ -118,9 +120,9 @@ local function create()
     if frame.name:IsEnabled() then frame.name:SetFocus() end
   end)
 
-  frame.error = frame:CreateFontString(nil, "ARTWORK", "GameFontRed")
-  frame.error:SetPoint("TOPLEFT", LABEL_X, -142)
-  frame.error:SetPoint("RIGHT", -20, 0)
+  frame.error = inset:CreateFontString(nil, "ARTWORK", "GameFontRed")
+  frame.error:SetPoint("TOPLEFT", frame, "TOPLEFT", LABEL_X, -142)
+  frame.error:SetPoint("RIGHT", frame, "RIGHT", -20, 0)
   frame.error:SetJustifyH("LEFT")
 
   button(L["BTN_CANCEL"], -8, function() frame:Hide() end)

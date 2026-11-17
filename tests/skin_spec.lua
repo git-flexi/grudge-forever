@@ -82,21 +82,6 @@ describe("Skin", function()
     assert.same({ "HORIZONTAL", top, bottom }, calls[2])
   end)
 
-  it("Panel sits at its parent's frame level", function()
-    local level
-    local create = CreateFrame
-    _G.CreateFrame = function(...)
-      local frame = create(...)
-      rawset(frame, "SetFrameLevel", function(_, n) level = n end)
-      return frame
-    end
-    local parent = create("Frame", nil, UIParent)
-    rawset(parent, "GetFrameLevel", function() return 7 end)
-    Skin.Panel(parent)
-    _G.CreateFrame = create
-    assert.equals(7, level)
-  end)
-
   it("keeps the alert palette in sync with the skin", function()
     wow.load(ns, "Core/Alerts.lua")
     local Alerts = ns.Alerts

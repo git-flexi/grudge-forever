@@ -697,6 +697,21 @@ describe("Addon load", function()
       assert.is_false(delete:IsShown())
     end)
 
+    it("draws the edit dialog's labels and error on its inset panel, above the panel's dark fill", function()
+      local onPanel = 0
+      local create = CreateFrame
+      _G.CreateFrame = function(kind, name, parent, template)
+        local f = create(kind, name, parent, template)
+        if template == "BackdropTemplate" and parent and parent:GetName() == "GrudgeForeverEditDialog" then
+          rawset(f, "CreateFontString", function() onPanel = onPanel + 1; return wow.proxy() end)
+        end
+        return f
+      end
+      ns.UI.EditDialog.Open("Jaina Proudmoore", "friendly")
+      _G.CreateFrame = create
+      assert.equals(4, onPanel) -- name, list and reason labels plus the error line
+    end)
+
     it("closes the edit dialog with its title-bar close button", function()
       ns.UI.EditDialog.Open("Jaina Proudmoore", "friendly")
       local dialog = frameNamed("GrudgeForeverEditDialog")
