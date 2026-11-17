@@ -1,7 +1,7 @@
 local ADDON, ns = ...
 
 -- Copy/paste window for export ("export": read-only, text selected) and import ("import").
-local L = ns.L
+local L, Skin = ns.L, ns.Skin
 
 ns.UI = ns.UI or {}
 local TextDialog = {}
@@ -29,9 +29,9 @@ local function selectAll()
 end
 
 local function create()
-  frame = CreateFrame("Frame", "GrudgeForeverTextDialog", UIParent, "ButtonFrameTemplate")
-  ButtonFrameTemplate_HidePortrait(frame)
-  frame:SetSize(520, 340)
+  frame = CreateFrame("Frame", "GrudgeForeverTextDialog", UIParent, "BackdropTemplate")
+  Skin.Window(frame, L["EXPORT_TITLE"])
+  frame:SetSize(520, 350)
   frame:SetPoint("CENTER")
   frame:SetFrameStrata("DIALOG")
   frame:SetToplevel(true)
@@ -44,17 +44,17 @@ local function create()
   table.insert(UISpecialFrames, "GrudgeForeverTextDialog")
 
   frame.hint = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  frame.hint:SetPoint("TOPLEFT", 16, -32)
+  frame.hint:SetPoint("TOPLEFT", 16, -42)
   frame.hint:SetPoint("RIGHT", -16, 0)
   frame.hint:SetJustifyH("LEFT")
 
-  frame.Inset:ClearAllPoints()
-  frame.Inset:SetPoint("TOPLEFT", 10, -54)
-  frame.Inset:SetPoint("BOTTOMRIGHT", -10, 34)
+  local inset = Skin.Panel(frame)
+  inset:SetPoint("TOPLEFT", frame.content, "TOPLEFT", 10, -30)
+  inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 34)
 
   frame.box = CreateFrame("Frame", nil, frame, "ScrollingEditBoxTemplate")
-  frame.box:SetPoint("TOPLEFT", frame.Inset, "TOPLEFT", 6, -6)
-  frame.box:SetPoint("BOTTOMRIGHT", frame.Inset, "BOTTOMRIGHT", -22, 6)
+  frame.box:SetPoint("TOPLEFT", inset, "TOPLEFT", 6, -6)
+  frame.box:SetPoint("BOTTOMRIGHT", inset, "BOTTOMRIGHT", -22, 6)
   local scrollBar = CreateFrame("EventFrame", nil, frame, "MinimalScrollBar")
   scrollBar:SetPoint("TOPLEFT", frame.box, "TOPRIGHT", 6, 0)
   scrollBar:SetPoint("BOTTOMLEFT", frame.box, "BOTTOMRIGHT", 6, 0)
@@ -87,7 +87,7 @@ function TextDialog.Open(newMode)
   if not frame then create() end
   mode = newMode
   local export = mode == "export"
-  frame:SetTitle(L[export and "EXPORT_TITLE" or "IMPORT_TITLE"])
+  frame.TitleText:SetText(L[export and "EXPORT_TITLE" or "IMPORT_TITLE"])
   frame.hint:SetText(L[export and "EXPORT_HINT" or "IMPORT_HINT"])
   frame.import:SetShown(not export)
   exportText = export and ns.ExportImport.Export(ns.Core.store) or ""

@@ -682,6 +682,31 @@ describe("Addon load", function()
       assert.is_false(delete:IsShown())
     end)
 
+    it("closes the edit dialog with its title-bar close button", function()
+      ns.UI.EditDialog.Open("Jaina Proudmoore", "friendly")
+      local dialog = frameNamed("GrudgeForeverEditDialog")
+      assert.is_true(dialog:IsShown())
+      wow.fire(dialog.CloseButton, "OnClick")
+      assert.is_false(dialog:IsShown())
+    end)
+
+    it("closes the text dialog with its title-bar close button", function()
+      ns.UI.TextDialog.Open("export")
+      local dialog = frameNamed("GrudgeForeverTextDialog")
+      assert.is_true(dialog:IsShown())
+      wow.fire(dialog.CloseButton, "OnClick")
+      assert.is_false(dialog:IsShown())
+    end)
+
+    it("keeps the dialogs closable with Escape", function()
+      ns.UI.EditDialog.Open("Jaina Proudmoore", "friendly")
+      ns.UI.TextDialog.Open("export")
+      local found = {}
+      for _, name in ipairs(UISpecialFrames) do found[name] = true end
+      assert.is_true(found.GrudgeForeverEditDialog)
+      assert.is_true(found.GrudgeForeverTextDialog)
+    end)
+
     it("locks the list choice when the dialog opens with a fixed list", function()
       ns.UI.EditDialog.Open("Jaina Proudmoore", "friendly", nil, nil, true)
       local dialog = frameNamed("GrudgeForeverEditDialog")

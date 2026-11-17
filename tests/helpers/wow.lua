@@ -22,7 +22,6 @@ local GLOBALS = {
   "geterrorhandler", "Settings", "C_FriendList", "C_AddOns",
   -- installed by wow.installUI() only
   "hooksecurefunc", "securecallfunction", "GetTime", "GetFramerate", "ChatThrottleLib", "C_UIFileAsset",
-  "ButtonFrameTemplate_HidePortrait",
   "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants",
   "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "Minimap", "CreateColor",
 }
@@ -259,7 +258,6 @@ function wow.installUI()
   _G.C_UIFileAsset = { IsKnownFile = function() return true end }
   _G.Enum = _G.Enum or {}
   local function stub() return newProxy() end
-  _G.ButtonFrameTemplate_HidePortrait = stub
   _G.CreateScrollBoxListLinearView = stub
   _G.CreateDataProvider = stub
   _G.ScrollUtil = newProxy()

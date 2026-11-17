@@ -1,7 +1,7 @@
 local ADDON, ns = ...
 
 -- Small dialog to add or edit an own entry: name, list, reason.
-local Const, L, Names = ns.Const, ns.L, ns.Names
+local Const, L, Names, Skin = ns.Const, ns.L, ns.Names, ns.Skin
 
 ns.UI = ns.UI or {}
 local EditDialog = {}
@@ -79,9 +79,9 @@ local function button(text, x, onClick)
 end
 
 local function create()
-  frame = CreateFrame("Frame", "GrudgeForeverEditDialog", UIParent, "ButtonFrameTemplate")
-  ButtonFrameTemplate_HidePortrait(frame)
-  frame:SetSize(390, 190)
+  frame = CreateFrame("Frame", "GrudgeForeverEditDialog", UIParent, "BackdropTemplate")
+  Skin.Window(frame, L["EDIT_TITLE_ADD"])
+  frame:SetSize(390, 200)
   frame:SetPoint("CENTER", 0, 80)
   frame:SetFrameStrata("DIALOG")
   frame:SetToplevel(true)
@@ -91,18 +91,18 @@ local function create()
   frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", frame.StartMoving)
   frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-  frame.Inset:ClearAllPoints()
-  frame.Inset:SetPoint("TOPLEFT", 4, -24)
-  frame.Inset:SetPoint("BOTTOMRIGHT", -6, 32)
+  local inset = Skin.Panel(frame)
+  inset:SetPoint("TOPLEFT", frame.content, "TOPLEFT", 4, 0)
+  inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 32)
   table.insert(UISpecialFrames, "GrudgeForeverEditDialog")
 
-  label(L["EDIT_NAME"], -40)
-  frame.name = input(-40, 60)
+  label(L["EDIT_NAME"], -50)
+  frame.name = input(-50, 60)
   frame.name:SetScript("OnTabPressed", function() frame.reason:SetFocus() end)
 
-  label(L["EDIT_LIST"], -72)
+  label(L["EDIT_LIST"], -82)
   local dropdown = CreateFrame("DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
-  dropdown:SetPoint("TOPLEFT", FIELD_X, -66)
+  dropdown:SetPoint("TOPLEFT", FIELD_X, -76)
   dropdown:SetWidth(180)
   dropdown:SetupMenu(function(_, root)
     for _, option in ipairs(LIST_OPTIONS) do
@@ -112,14 +112,14 @@ local function create()
   end)
   frame.list = dropdown
 
-  label(L["EDIT_REASON"], -104)
-  frame.reason = input(-104, Const.REASON_MAX)
+  label(L["EDIT_REASON"], -114)
+  frame.reason = input(-114, Const.REASON_MAX)
   frame.reason:SetScript("OnTabPressed", function()
     if frame.name:IsEnabled() then frame.name:SetFocus() end
   end)
 
   frame.error = frame:CreateFontString(nil, "ARTWORK", "GameFontRed")
-  frame.error:SetPoint("TOPLEFT", LABEL_X, -132)
+  frame.error:SetPoint("TOPLEFT", LABEL_X, -142)
   frame.error:SetPoint("RIGHT", -20, 0)
   frame.error:SetJustifyH("LEFT")
 
@@ -147,7 +147,7 @@ function EditDialog.Open(name, list, entry, reason, fixed)
   state.editing = entry and { name = entry.name, list = entry.list } or nil
   state.list = entry and entry.list or (ns.Store.IsList(list) and list) or Const.LIST_FRIENDLY
 
-  frame:SetTitle(L[entry and "EDIT_TITLE_EDIT" or "EDIT_TITLE_ADD"])
+  frame.TitleText:SetText(L[entry and "EDIT_TITLE_EDIT" or "EDIT_TITLE_ADD"])
   frame.name:SetText(Names.Display(entry and entry.name or name) or "")
   frame.name:SetEnabled(entry == nil)
   frame.reason:SetText(entry and entry.reason or reason or "")
