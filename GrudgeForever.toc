@@ -26,6 +26,7 @@ Core\IgnoreWatch.lua
 Core\GuildMembers.lua
 Core\Sorting.lua
 Core\Slash.lua
+UI\Skin.lua
 UI\Banner.lua
 UI\OptionsPanel.lua
 UI\Tooltip.lua

@@ -15,7 +15,7 @@ read_globals = {
   "PanelTemplates_EnableTab", "PanelTemplates_DisableTab",
   "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants", "StaticPopup_Show",
   "geterrorhandler", "C_FriendList", "hooksecurefunc", "GameTooltip", "C_AddOns",
-  "LE_PARTY_CATEGORY_HOME", "LE_PARTY_CATEGORY_INSTANCE",
+  "LE_PARTY_CATEGORY_HOME", "LE_PARTY_CATEGORY_INSTANCE", "CreateColor",
 }
 
 -- addon-owned globals, plus client tables the addon registers into
@@ -39,6 +39,6 @@ files["tests/**"] = {
   "PanelTemplates_EnableTab", "PanelTemplates_DisableTab",
     "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants",
     "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "geterrorhandler", "Settings",
-    "C_FriendList", "Minimap", "C_AddOns",
+    "C_FriendList", "Minimap", "C_AddOns", "CreateColor",
   },
 }

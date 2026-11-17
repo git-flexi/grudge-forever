@@ -25,7 +25,7 @@ local GLOBALS = {
   "ButtonFrameTemplate_HidePortrait", "PanelTemplates_SetNumTabs", "PanelTemplates_SetTab",
   "PanelTemplates_EnableTab", "PanelTemplates_DisableTab",
   "CreateScrollBoxListLinearView", "CreateDataProvider", "ScrollUtil", "ScrollBoxConstants",
-  "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "Minimap",
+  "StaticPopupDialogs", "StaticPopup_Show", "UISpecialFrames", "Minimap", "CreateColor",
 }
 
 -- Libraries that run as plain Lua, loaded through the real LibStub.
@@ -274,6 +274,7 @@ function wow.installUI()
   _G.StaticPopup_Show = stub
   _G.UISpecialFrames = {}
   _G.Minimap = newProxy("Minimap")
+  _G.CreateColor = function(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 end
 
 -- The recorded frame that registered the event, or nil.
