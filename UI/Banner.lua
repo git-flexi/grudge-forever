@@ -137,6 +137,7 @@ local function create()
   slide:SetOffset(0, -INTRO_RISE)
   slide:SetDuration(INTRO_SECONDS)
   intro:SetScript("OnFinished", function() applyPosition() end)
+  intro:SetScript("OnStop", function() applyPosition() end) -- display() re-lifts right after its own Stop
 
   fade = frame:CreateAnimationGroup()
   local alpha = fade:CreateAnimation("Alpha")
@@ -215,7 +216,10 @@ end
 function Banner.ResetPosition()
   local db = GrudgeForeverDB
   if db and db.settings then db.settings.banner = nil end
-  if frame then applyPosition() end
+  if frame then
+    intro:Stop()
+    applyPosition()
+  end
 end
 
 Banner.ICON_PLACEHOLDER = "Interface\\DialogFrame\\UI-Dialog-Icon-AlertNew"

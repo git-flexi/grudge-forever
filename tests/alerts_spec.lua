@@ -110,7 +110,7 @@ describe("Alerts", function()
       local banner = ns.Alerts.Compose("friendly", { text = "{list} {name} ({by})" }, { name = "A", by = "B" })
       assert.truthy(banner:find("|cffffffffA|r", 1, true))
       assert.truthy(banner:find("|cff8fb7e0B|r", 1, true))
-      assert.truthy(banner:find("|cffff6a4a", 1, true))
+      assert.truthy(banner:find("|cffff6a4a" .. ns.L["ALERT_LIST_FRIENDLY"] .. "|r", 1, true))
     end)
 
     it("keeps pipes in a remote reason escaped in the banner", function()
@@ -423,13 +423,74 @@ describe("Banner", function()
   it("a second alert keeps the banner up after the first one's timer", function()
     setupRecorders()
     wowEnv.Banner.Show("icon", "A")
-    local half = wow.timers
-    wow.timers = {}
     wowEnv.Banner.Show("icon", "B")
-    wow.timers = { half[1], wow.timers[1] }
-    wow.runTimers()
+    assert.equals(2, #wow.timers)
     local fade = groupFading(1)
     assert.is_not_nil(fade)
+    wow.timers[1].fn() -- A's timer is stale
+    assert.equals(0, count(fade, "Play"))
+    wow.timers[2].fn()
     assert.equals(1, count(fade, "Play"))
+  end)
+
+  describe("intro lift", function()
+    local function script(r, name)
+      for i = #r.calls, 1, -1 do
+        if r.calls[i].name == "SetScript" and r.calls[i].args[1] == name then return r.calls[i].args[2] end
+      end
+    end
+    local function bannerFrame()
+      for _, r in ipairs(regions) do
+        if r.kind == "Frame" then return r end
+      end
+    end
+    local function restY(frame)
+      local anchors = anchorsSinceClear(frame)
+      return anchors[#anchors][5]
+    end
+
+    before_each(setupRecorders)
+
+    it("anchors 12px above the rest position and settles on finish", function()
+      wowEnv.Banner.Show("icon", "x")
+      local frame = bannerFrame()
+      assert.equals(-138, restY(frame))
+      script(groupFading(0), "OnFinished")()
+      assert.equals(-150, restY(frame))
+    end)
+
+    it("settles on stop and uses the saved position as rest", function()
+      GrudgeForeverDB.settings = { banner = { point = "CENTER", x = 5, y = 20 } }
+      wowEnv.Banner.Show("icon", "x")
+      local frame = bannerFrame()
+      assert.equals(32, restY(frame))
+      script(groupFading(0), "OnStop")()
+      assert.equals(20, restY(frame))
+    end)
+
+    it("resets to the rest anchor when a drag starts", function()
+      wowEnv.Banner.SetLocked(false) -- placeholder, lifted
+      local frame = bannerFrame()
+      assert.equals(-138, restY(frame))
+      script(frame, "OnDragStart")(frame)
+      assert.equals(-150, restY(frame))
+    end)
+
+    it("never changes the saved position by showing", function()
+      local saved = { point = "CENTER", x = 5, y = 20 }
+      GrudgeForeverDB.settings = { banner = saved }
+      wowEnv.Banner.Show("icon", "x")
+      wowEnv.Banner.Show("icon", "y")
+      assert.equals(saved, GrudgeForeverDB.settings.banner)
+      assert.same({ point = "CENTER", x = 5, y = 20 }, saved)
+    end)
+
+    it("stops the intro when the position is reset", function()
+      wowEnv.Banner.Show("icon", "x")
+      local intro = groupFading(0)
+      local before = count(intro, "Stop")
+      wowEnv.Banner.ResetPosition()
+      assert.equals(before + 1, count(intro, "Stop"))
+    end)
   end)
 end)
