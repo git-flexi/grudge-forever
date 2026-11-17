@@ -3,7 +3,8 @@ local ADDON, ns = ...
 -- Main window: one tab per list, one row per player (expandable to all entries of that player),
 -- a filter and name search on top, actions at the bottom. A third tab lists the guild members and
 -- who of them runs the addon.
-local Const, L, Names, Sorting = ns.Const, ns.L, ns.Names, ns.Sorting
+local Const, L, Names, Sorting, Skin = ns.Const, ns.L, ns.Names, ns.Sorting, ns.Skin
+local C = Skin.COLORS
 
 ns.UI = ns.UI or {}
 local MainWindow = {}
@@ -31,9 +32,8 @@ local GUILD_COLUMNS = {
   { key = "MW_COL_SEEN", x = 484, width = 160, sort = "seen" },
 }
 local SORT_ARROW = "Interface\\Buttons\\UI-SortArrow"
-local OWN_COLOR = { 1, 0.82, 0 }
-local OTHER_COLOR = { 1, 1, 1 }
-local ENTRY_COLOR = { 0.75, 0.75, 0.75 }
+local OWN_COLOR = C.gold
+local OTHER_COLOR = { r = 1, g = 1, b = 1 }
 local SEPARATOR = " \194\183 " -- middle dot
 
 local frame
@@ -96,11 +96,15 @@ local function buildItems()
   Sorting.SortPlayers(players, sort.column, sort.desc)
 
   local items = {}
+  local function add(item)
+    item.index = #items + 1
+    items[item.index] = item
+  end
   for _, player in ipairs(players) do
     local key, matches = player.key, player.matches
-    items[#items + 1] = { kind = "player", key = key, matches = matches }
+    add({ kind = "player", key = key, matches = matches })
     if state.expanded[key] and #matches > 1 then
-      for _, m in ipairs(matches) do items[#items + 1] = { kind = "entry", key = key, match = m } end
+      for _, m in ipairs(matches) do add({ kind = "entry", key = key, match = m }) end
     end
   end
   return items
@@ -117,7 +121,9 @@ local function buildGuildItems()
   local needle = Names.Normalize(state.search)
   local items = {}
   for _, member in ipairs(members) do
-    if not needle or member.key:find(needle, 1, true) then items[#items + 1] = { kind = "member", member = member } end
+    if not needle or member.key:find(needle, 1, true) then
+      items[#items + 1] = { kind = "member", member = member, index = #items + 1 }
+    end
   end
   frame.summary:SetText(L["MW_GUILD_SUMMARY"]:format(ns.GuildMembers.Count(members))
     .. (Core.sv.settings.syncMode == "off" and L["MW_GUILD_SYNC_OFF"] or ""))
@@ -194,13 +200,15 @@ local function playerCells(item)
   local newest = 0
   for _, m in ipairs(matches) do newest = math.max(newest, m.entry.updated or 0) end
   local status = first.muted and L["TOOLTIP_MUTED"] or ""
-  return { name, reason, by, formatDate(newest), status }, first.isOwn and OWN_COLOR or OTHER_COLOR
+  return { name, reason, by, formatDate(newest), status },
+    { first.isOwn and OWN_COLOR or OTHER_COLOR, C.text, C.by, C.muted, C.alert }
 end
 
 local function entryCells(item)
   local m = item.match
   local status = m.muted and L["TOOLTIP_MUTED"] or ""
-  return { "", Escape(m.entry.reason), byText(m), formatDate(m.entry.updated), status }, ENTRY_COLOR
+  return { "", Escape(m.entry.reason), byText(m), formatDate(m.entry.updated), status },
+    { C.muted, C.text, C.muted, C.muted, C.muted }
 end
 
 local GREEN, GREY = "ff40ff40", "ff9d9d9d"
@@ -220,7 +228,7 @@ local function memberCells(item)
     m.hasAddon and colored(GREEN, L["MW_ADDON_YES"]) or "-",
     version,
     formatDate(m.seen),
-  }, m.online and OTHER_COLOR or ENTRY_COLOR
+  }, { m.online and OTHER_COLOR or C.muted, C.text, C.text, C.muted, C.muted }
 end
 
 local function onRowClick(item)
@@ -237,12 +245,7 @@ end
 local function initRow(row, item)
   if not row.cells then
     row:SetHeight(ROW_HEIGHT)
-    row.selection = row:CreateTexture(nil, "BACKGROUND")
-    row.selection:SetAllPoints()
-    row.selection:SetColorTexture(1, 0.82, 0, 0.2)
-    local highlight = row:CreateTexture(nil, "HIGHLIGHT")
-    highlight:SetAllPoints()
-    highlight:SetColorTexture(1, 1, 1, 0.08)
+    Skin.Row(row)
     row.cells = {}
     for i = 1, #COLUMNS do
       local fs = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -260,19 +263,19 @@ local function initRow(row, item)
     fs:SetPoint("LEFT", col.x, 0)
     fs:SetWidth(col.width)
   end
-  local cells, color
+  local cells, colors
   if item.kind == "member" then
-    cells, color = memberCells(item)
+    cells, colors = memberCells(item)
   elseif item.kind == "player" then
-    cells, color = playerCells(item)
+    cells, colors = playerCells(item)
   else
-    cells, color = entryCells(item)
+    cells, colors = entryCells(item)
   end
   for i, fs in ipairs(row.cells) do
     fs:SetText(cells[i])
-    fs:SetTextColor(color[1], color[2], color[3])
+    fs:SetTextColor(colors[i].r, colors[i].g, colors[i].b)
   end
-  row.selection:SetShown(item.kind ~= "member" and isSelected(item))
+  Skin.SetRowState(row, item.index, item.kind ~= "member" and isSelected(item))
 end
 
 -- Buttons -----------------------------------------------------------------------------
@@ -361,14 +364,14 @@ local onHeaderClick
 local function selectTab(index)
   state.tab = index
   state.selKey, state.selOwner = nil, nil
-  PanelTemplates_SetTab(frame, index)
+  frame.tabs:SetTab(index)
   -- the roster answer refreshes the window again
   if TABS[index].guild and IsInGuild() then C_GuildInfo.GuildRoster() end
   MainWindow.Refresh()
 end
 
 local function button(text, width, onClick)
-  local b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  local b = CreateFrame("Button", nil, frame.content, "UIPanelButtonTemplate")
   b:SetSize(width, 22)
   b:SetText(text)
   b:SetScript("OnClick", onClick)
@@ -396,7 +399,7 @@ end
 local function createControls()
   local filter = CreateFrame("DropdownButton", nil, frame, "WowStyle1DropdownTemplate")
   frame.filter = filter
-  filter:SetPoint("TOPLEFT", 12, -30)
+  filter:SetPoint("TOPLEFT", frame.content, "TOPLEFT", 12, -40)
   filter:SetWidth(140)
   filter:SetupMenu(function(_, root)
     for _, option in ipairs({ { "MW_FILTER_ALL", "all" }, { "MW_FILTER_MINE", "mine" } }) do
@@ -426,7 +429,7 @@ local function createControls()
   end)
 
   buttons.sync = button(L["MW_SYNC"], 160, function() ns.Core.ManualSync() end)
-  buttons.sync:SetPoint("TOPRIGHT", -12, -30)
+  buttons.sync:SetPoint("TOPRIGHT", frame.content, "TOPRIGHT", -12, -40)
   buttons.import = button(L["MW_IMPORT"], 80, function() ns.UI.TextDialog.Open("import") end)
   buttons.import:SetPoint("RIGHT", buttons.sync, "LEFT", -4, 0)
   buttons.export = button(L["MW_EXPORT"], 80, function() ns.UI.TextDialog.Open("export") end)
@@ -458,10 +461,10 @@ local function createControls()
 end
 
 local function createList()
-  local inset = frame.Inset
-  inset:ClearAllPoints()
-  inset:SetPoint("TOPLEFT", 4, -60)
-  inset:SetPoint("BOTTOMRIGHT", -6, 32)
+  local inset = Skin.Panel(frame)
+  inset:SetPoint("TOPLEFT", frame.content, "TOPLEFT", 6, -70)
+  inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 34)
+  frame.list = inset
 
   -- column headers sort the list; updateLayout places and labels them per tab
   frame.headers = {}
@@ -469,7 +472,7 @@ local function createList()
     local header = CreateFrame("Button", nil, inset)
     header:SetHeight(16)
     header:SetID(i)
-    local label = header:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    local label = header:CreateFontString(nil, "ARTWORK", Skin.Font("GameFontNormalSmall"))
     label:SetPoint("LEFT")
     label:SetJustifyH("LEFT")
     header.label = label
@@ -498,21 +501,18 @@ local function createList()
 end
 
 local function createTabs()
-  for i, tab in ipairs(TABS) do
-    local b = CreateFrame("Button", "GrudgeForeverMainWindowTab" .. i, frame, "PanelTabButtonTemplate")
-    b:SetID(i)
-    b:SetText(L[tab.key])
-    b:SetScript("OnClick", function(self) selectTab(self:GetID()) end)
-    if i == 1 then b:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 12, 2) end
-  end
-  PanelTemplates_SetNumTabs(frame, #TABS)
+  local labels = {}
+  for i, tab in ipairs(TABS) do labels[i] = L[tab.key] end
+  frame.tabs = Skin.Tabs(frame.content, "GrudgeForeverMainWindowTab", labels, selectTab)
+  local first = frame.tabs:GetTab(1)
+  first:ClearAllPoints()
+  first:SetPoint("TOPLEFT", frame.content, "TOPLEFT", 10, -4)
 end
 
 local function create()
-  frame = CreateFrame("Frame", "GrudgeForeverMainWindow", UIParent, "ButtonFrameTemplate")
-  ButtonFrameTemplate_HidePortrait(frame)
-  frame:SetTitle(L["ADDON_TITLE"])
-  frame:SetSize(720, 480)
+  frame = CreateFrame("Frame", "GrudgeForeverMainWindow", UIParent, "BackdropTemplate")
+  Skin.Window(frame, L["ADDON_TITLE"])
+  frame:SetSize(720, 508)
   frame:SetPoint("CENTER")
   frame:SetToplevel(true)
   frame:EnableMouse(true)
@@ -539,7 +539,7 @@ local function create()
   frame:SetScript("OnShow", function() MainWindow.Refresh() end)
 
   state.tab = 1
-  PanelTemplates_SetTab(frame, 1)
+  frame.tabs:SetTab(1)
 end
 
 -- Public --------------------------------------------------------------------------------
@@ -547,13 +547,26 @@ end
 -- Without a guild the guild tab is disabled; if it was open, the first tab takes over.
 local function updateGuildTab()
   if ns.Core.store:GetCurrentGuild() then
-    PanelTemplates_EnableTab(frame, GUILD_TAB)
+    frame.tabs:EnableTab(GUILD_TAB)
     return
   end
-  PanelTemplates_DisableTab(frame, GUILD_TAB)
+  frame.tabs:DisableTab(GUILD_TAB)
   if state.tab == GUILD_TAB then
     state.tab = 1
-    PanelTemplates_SetTab(frame, 1)
+    frame.tabs:SetTab(1)
+  end
+end
+
+-- The list tabs show how many players are on their list, whatever the filter and search say.
+local function updateTabCounts()
+  for i, tab in ipairs(TABS) do
+    if tab.list then
+      local count = 0
+      for _, matches in pairs(ns.Core.store:ListAll(tab.list)) do
+        if #matches > 0 then count = count + 1 end
+      end
+      frame.tabs:SetTabText(i, L[tab.key] .. SEPARATOR .. count)
+    end
   end
 end
 
@@ -569,9 +582,11 @@ local function updateLayout()
     header:ClearAllPoints()
     header:SetPoint("TOPLEFT", col.x + 4, -4)
     header:SetWidth(col.width)
-    header.label:SetText(L[col.key])
+    header.label:SetText(L[col.key]:upper())
     -- the arrow points down for newest/highest first, up for oldest/A first
     local sorted = sort.column == col.sort
+    local tone = sorted and C.gold or C.muted
+    header.label:SetTextColor(tone.r, tone.g, tone.b)
     header.arrow:SetShown(sorted)
     if sorted then
       if sort.desc then
@@ -586,6 +601,7 @@ end
 function MainWindow.Refresh()
   if not frame or not frame:IsShown() then return end
   updateGuildTab()
+  updateTabCounts()
   updateLayout()
   local items = onGuildTab() and buildGuildItems() or buildItems()
   dropVanishedSelection()

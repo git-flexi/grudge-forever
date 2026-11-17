@@ -757,7 +757,7 @@ describe("Addon load", function()
       local row = rows()[1]
       local frame = frameNamed("GrudgeForeverMainWindow")
       -- own columns: a full date fits into "last seen"
-      assert.equals(ns.L["MW_COL_SEEN"], frame.headers[5].label:GetText())
+      assert.equals(ns.L["MW_COL_SEEN"]:upper(), frame.headers[5].label:GetText())
       assert.is_true(row.cells[5]:GetWidth() >= 100)
       assert.equals(ns.L["MW_GUILD_SUMMARY"]:format(2, 3), frame.summary:GetText())
       assert.is_true(frame.summary:IsShown())
@@ -765,7 +765,7 @@ describe("Addon load", function()
 
       wow.fire(frameNamed("GrudgeForeverMainWindowTab1"), "OnClick")
       assert.equals("player", items[1].kind)
-      assert.equals(ns.L["MW_COL_STATUS"], frame.headers[5].label:GetText())
+      assert.equals(ns.L["MW_COL_STATUS"]:upper(), frame.headers[5].label:GetText())
       row = rows()[1]
       assert.equals(54, row.cells[5]:GetWidth())
       assert.is_false(frame.summary:IsShown())
@@ -794,8 +794,40 @@ describe("Addon load", function()
       wow.fire(frameNamed("GrudgeForeverMainWindowTab3"), "OnClick")
       ns.Core.store:SetCurrentCharacter("Jaina Proudmoore", nil)
       ns.UI.MainWindow.Refresh()
-      assert.is_true(wow.disabledTabs[3])
+      assert.is_false(frameNamed("GrudgeForeverMainWindowTab3"):IsEnabled())
       assert.equals("player", items[1].kind)
+    end)
+
+    it("shows player counts on the list tabs", function()
+      SlashCmdList.GRUDGEFOREVER("")
+      local tab1, tab2, tab3 = frameNamed("GrudgeForeverMainWindowTab1"), frameNamed("GrudgeForeverMainWindowTab2"),
+        frameNamed("GrudgeForeverMainWindowTab3")
+      assert.equals(ns.L["MW_TAB_FRIENDLY"] .. " · 2", tab1:GetText())
+      assert.equals(ns.L["MW_TAB_ENEMY"] .. " · 0", tab2:GetText())
+      assert.equals(ns.L["MW_TAB_GUILD"], tab3:GetText())
+      ns.Core.Change(function(s) s:AddOrUpdate("enemy", "Garrosh Hellscream", "x") end)
+      assert.equals(ns.L["MW_TAB_ENEMY"] .. " · 1", tab2:GetText())
+      local search
+      for _, frame in ipairs(wow.frames) do
+        if frame:GetScript("OnTextChanged") then search = frame end
+      end
+      search:SetText("zzz")
+      wow.fire(search, "OnTextChanged")
+      assert.equals(ns.L["MW_TAB_FRIENDLY"] .. " · 2", tab1:GetText())
+    end)
+
+    it("ignores a click on the disabled guild tab", function()
+      SlashCmdList.GRUDGEFOREVER("")
+      ns.Core.store:SetCurrentCharacter("Jaina Proudmoore", nil)
+      ns.UI.MainWindow.Refresh()
+      wow.fire(frameNamed("GrudgeForeverMainWindowTab3"), "OnClick")
+      assert.equals("player", items[1].kind)
+    end)
+
+    it("numbers the shown rows for the zebra stripes", function()
+      SlashCmdList.GRUDGEFOREVER("")
+      assert.equals(1, items[1].index)
+      assert.equals(2, items[2].index)
     end)
 
     it("opens the settings from the gear button", function()
