@@ -16,22 +16,27 @@ local TABS = {
   { guild = true, key = "MW_TAB_GUILD" },
 }
 local GUILD_TAB = 3
--- sort: the Sorting column a click on the header sorts by
+-- sort: the Sorting column a click on the header sorts by; flex: the column that takes the extra
+-- width of a window wider than BASE_WIDTH (the columns right of it move along)
 local COLUMNS = {
   { key = "MW_COL_NAME", x = 8, width = 160, sort = "name" },
-  { key = "MW_COL_REASON", x = 172, width = 230, sort = "reason" },
+  { key = "MW_COL_REASON", x = 172, width = 230, sort = "reason", flex = true },
   { key = "MW_COL_BY", x = 406, width = 140, sort = "by" },
   { key = "MW_COL_DATE", x = 550, width = 76, sort = "date" },
   { key = "MW_COL_STATUS", x = 630, width = 54, sort = "status" },
 }
 local GUILD_COLUMNS = {
-  { key = "MW_COL_NAME", x = 8, width = 200, sort = "name" },
+  { key = "MW_COL_NAME", x = 8, width = 200, sort = "name", flex = true },
   { key = "MW_COL_ONLINE", x = 212, width = 90, sort = "online" },
   { key = "MW_COL_ADDON", x = 306, width = 70, sort = "addon" },
   { key = "MW_COL_VERSION", x = 380, width = 100, sort = "version" },
   { key = "MW_COL_SEEN", x = 484, width = 160, sort = "seen" },
 }
 local SORT_ARROW = "Interface\\Buttons\\UI-SortArrow"
+-- the window can be resized between its normal size and MAX_*
+local BASE_WIDTH, BASE_HEIGHT = 720, 508
+local MAX_WIDTH, MAX_HEIGHT = 1400, 1000
+local GRIP = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-"
 local OWN_COLOR = C.gold
 local OTHER_COLOR = { r = 1, g = 1, b = 1 }
 local SEPARATOR = " \194\183 " -- middle dot
@@ -57,8 +62,21 @@ local function onGuildTab()
   return TABS[state.tab].guild == true
 end
 
+-- How much wider than normal the window is (never less than 0).
+local function extraWidth()
+  local width = frame and frame:GetWidth()
+  if type(width) ~= "number" then return 0 end
+  return math.max(0, width - BASE_WIDTH)
+end
+
+-- The shown tab's columns laid out for the current window width.
 local function columns()
-  return onGuildTab() and GUILD_COLUMNS or COLUMNS
+  local extra, shift, out = extraWidth(), 0, {}
+  for i, col in ipairs(onGuildTab() and GUILD_COLUMNS or COLUMNS) do
+    out[i] = { key = col.key, sort = col.sort, x = col.x + shift, width = col.width + (col.flex and extra or 0) }
+    if col.flex then shift = extra end
+  end
+  return out
 end
 
 local function sortState()
@@ -527,24 +545,76 @@ local function createTabs()
   first:SetPoint("TOPLEFT", frame.content, "TOPLEFT", 10, -4)
 end
 
+local function clamp(v, low, high)
+  if type(v) ~= "number" or v ~= v then return low end
+  return math.min(high, math.max(low, v))
+end
+
+-- Size and position (center offset from the screen center), saved in the settings.
+local function saveGeometry()
+  local cx, cy = frame:GetCenter()
+  local ux, uy = UIParent:GetCenter()
+  local w, h = frame:GetWidth(), frame:GetHeight()
+  if not (type(cx) == "number" and type(ux) == "number" and type(w) == "number" and type(h) == "number") then return end
+  ns.Core.sv.settings.mainWindow = { w = w, h = h, x = cx - ux, y = cy - uy }
+end
+
+local function applyGeometry()
+  local saved = ns.Core.sv.settings.mainWindow
+  if type(saved) ~= "table" then
+    frame:SetSize(BASE_WIDTH, BASE_HEIGHT)
+    frame:SetPoint("CENTER")
+    return
+  end
+  frame:SetSize(clamp(saved.w, BASE_WIDTH, MAX_WIDTH), clamp(saved.h, BASE_HEIGHT, MAX_HEIGHT))
+  local x = type(saved.x) == "number" and saved.x == saved.x and saved.x or 0
+  local y = type(saved.y) == "number" and saved.y == saved.y and saved.y or 0
+  frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
+end
+
+-- Grip in the bottom right corner that resizes the window.
+local function createResizeGrip()
+  frame:SetResizable(true)
+  if frame.SetResizeBounds then
+    frame:SetResizeBounds(BASE_WIDTH, BASE_HEIGHT, MAX_WIDTH, MAX_HEIGHT)
+  end
+  local grip = CreateFrame("Button", nil, frame)
+  grip:SetSize(16, 16)
+  grip:SetPoint("BOTTOMRIGHT", -3, 3)
+  grip:SetNormalTexture(GRIP .. "Up")
+  grip:SetPushedTexture(GRIP .. "Down")
+  grip:SetHighlightTexture(GRIP .. "Highlight")
+  grip:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end)
+  grip:SetScript("OnMouseUp", function()
+    frame:StopMovingOrSizing()
+    saveGeometry()
+  end)
+  frame.resizeGrip = grip
+end
+
 local function create()
   frame = CreateFrame("Frame", "GrudgeForeverMainWindow", UIParent, "BackdropTemplate")
   Skin.Window(frame, L["ADDON_TITLE"])
-  frame:SetSize(720, 508)
-  frame:SetPoint("CENTER")
+  applyGeometry()
   frame:SetToplevel(true)
   frame:EnableMouse(true)
   frame:SetMovable(true)
   frame:SetClampedToScreen(true)
   frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", frame.StartMoving)
-  frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+  frame:SetScript("OnDragStop", function()
+    frame:StopMovingOrSizing()
+    saveGeometry()
+  end)
+  -- a wider window gives the extra room to the reason column (the guild tab: the name)
+  frame:SetScript("OnSizeChanged", function() MainWindow.Refresh() end)
   frame:Hide()
   table.insert(UISpecialFrames, "GrudgeForeverMainWindow")
 
   createControls()
   createList()
   createTabs()
+  createResizeGrip()
 
   -- the sync cooldown counts down while the window is open
   local elapsed = 0

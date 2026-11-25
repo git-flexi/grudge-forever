@@ -697,6 +697,63 @@ describe("Addon load", function()
       assert.is_false(delete:IsShown())
     end)
 
+    it("stretches the reason column when the window gets wider", function()
+      SlashCmdList.GRUDGEFOREVER("")
+      local frame = frameNamed("GrudgeForeverMainWindow")
+      rawset(frame, "GetWidth", function() return 920 end)
+      wow.fire(frame, "OnSizeChanged")
+      local cells = rowFor("thrall earthson").cells
+      assert.equals(160, cells[1]:GetWidth())
+      assert.equals(430, cells[2]:GetWidth())
+      assert.equals(140, cells[3]:GetWidth())
+      assert.equals(430, frame.headers[2]:GetWidth())
+
+      wow.roster = { "Jaina-Proudmoore" }
+      wow.fire(frameNamed("GrudgeForeverMainWindowTab3"), "OnClick")
+      assert.equals(400, rows()[1].cells[1]:GetWidth()) -- the guild tab stretches the name
+    end)
+
+    it("never shrinks the columns below their normal width", function()
+      SlashCmdList.GRUDGEFOREVER("")
+      local frame = frameNamed("GrudgeForeverMainWindow")
+      rawset(frame, "GetWidth", function() return 500 end)
+      wow.fire(frame, "OnSizeChanged")
+      assert.equals(230, rowFor("thrall earthson").cells[2]:GetWidth())
+    end)
+
+    it("remembers size and position after resizing with the grip", function()
+      SlashCmdList.GRUDGEFOREVER("")
+      local frame = frameNamed("GrudgeForeverMainWindow")
+      rawset(frame, "GetWidth", function() return 920 end)
+      rawset(frame, "GetHeight", function() return 600 end)
+      rawset(frame, "GetCenter", function() return 600, 400 end)
+      rawset(UIParent, "GetCenter", function() return 500, 400 end)
+      local sizing
+      rawset(frame, "StartSizing", function(_, point) sizing = point end)
+      wow.fire(frame.resizeGrip, "OnMouseDown")
+      assert.equals("BOTTOMRIGHT", sizing)
+      wow.fire(frame.resizeGrip, "OnMouseUp")
+      assert.same({ w = 920, h = 600, x = 100, y = 0 }, ns.Core.sv.settings.mainWindow)
+    end)
+
+    it("opens with the saved size, kept within the bounds", function()
+      ns.Core.sv.settings.mainWindow = { w = 5000, h = 300, x = 10, y = 20 }
+      local size, point
+      local create = CreateFrame
+      _G.CreateFrame = function(kind, name, ...)
+        local f = create(kind, name, ...)
+        if name == "GrudgeForeverMainWindow" then
+          rawset(f, "SetSize", function(_, w, h) size = { w, h } end)
+          rawset(f, "SetPoint", function(_, ...) point = { ... } end)
+        end
+        return f
+      end
+      SlashCmdList.GRUDGEFOREVER("")
+      _G.CreateFrame = create
+      assert.same({ 1400, 508 }, size)
+      assert.same({ "CENTER", UIParent, "CENTER", 10, 20 }, point)
+    end)
+
     -- GameTooltip stand-in that records the lines it gets.
     local function tooltipRecorder()
       local tip = { lines = {}, wraps = {}, shown = false }
