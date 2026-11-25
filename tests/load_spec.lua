@@ -697,6 +697,59 @@ describe("Addon load", function()
       assert.is_false(delete:IsShown())
     end)
 
+    -- GameTooltip stand-in that records the lines it gets.
+    local function tooltipRecorder()
+      local tip = { lines = {}, wraps = {}, shown = false }
+      tip.SetOwner = function() end
+      tip.ClearLines = function() tip.lines, tip.wraps = {}, {} end
+      tip.SetText = function(_, text) tip.lines = { text } end
+      tip.AddLine = function(_, text, _, _, _, wrap)
+        tip.lines[#tip.lines + 1] = text
+        tip.wraps[#tip.lines] = wrap
+      end
+      tip.Show = function() tip.shown = true end
+      tip.Hide = function() tip.shown = false end
+      return tip
+    end
+
+    it("shows the full reason of the own entry first in a row tooltip", function()
+      _G.GameTooltip = tooltipRecorder()
+      local long = "Toxic - got pissy during a complete valley run and left right before the last boss"
+      ns.Core.store:AddOrUpdate("friendly", "Thrall Earthson", long:sub(1, 80))
+      SlashCmdList.GRUDGEFOREVER("")
+      local row = rowFor("thrall earthson") -- own entry plus a foreign one ("afk")
+      wow.fire(row, "OnEnter")
+      assert.is_true(GameTooltip.shown)
+      assert.equals("Thrall Earthson", GameTooltip.lines[1])
+      assert.equals(long:sub(1, 80), GameTooltip.lines[2])
+      assert.is_true(GameTooltip.wraps[2])
+      for _, line in ipairs(GameTooltip.lines) do assert.is_nil(line:find("afk", 1, true)) end
+      wow.fire(row, "OnLeave")
+      assert.is_false(GameTooltip.shown)
+    end)
+
+    it("shows the foreign reason when a player has no own entry, escaped", function()
+      _G.GameTooltip = tooltipRecorder()
+      ns.Core.store:ApplyDelta({ o = "bbbbbbbbbbbbbbbb", rev = 1, base = 0, lastChar = "Garrosh Hellscream", chars = {},
+        e = { { key = "jaina proudmoore", name = "Jaina Proudmoore", list = "friendly", reason = "x|Ty",
+          created = 1, updated = 3, rev = 1, deleted = false } } })
+      SlashCmdList.GRUDGEFOREVER("")
+      wow.fire(rowFor("jaina proudmoore"), "OnEnter")
+      assert.equals("x||Ty", GameTooltip.lines[2])
+    end)
+
+    it("shows no row tooltip without a reason", function()
+      _G.GameTooltip = tooltipRecorder()
+      ns.Core.store:AddOrUpdate("friendly", "Thrall Earthson", "")
+      ns.Core.store:Delete("friendly", "Thrall Earthson")
+      ns.Core.store:ApplyDelta({ o = "bbbbbbbbbbbbbbbb", rev = 1, base = 0, lastChar = "Garrosh Hellscream", chars = {},
+        e = { { key = "jaina proudmoore", name = "Jaina Proudmoore", list = "friendly", reason = "",
+          created = 1, updated = 3, rev = 1, deleted = false } } })
+      SlashCmdList.GRUDGEFOREVER("")
+      wow.fire(rowFor("jaina proudmoore"), "OnEnter")
+      assert.is_false(GameTooltip.shown)
+    end)
+
     it("draws the edit dialog's labels and error on its inset panel, above the panel's dark fill", function()
       local onPanel = 0
       local create = CreateFrame

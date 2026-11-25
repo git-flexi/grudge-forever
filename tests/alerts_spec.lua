@@ -29,7 +29,12 @@ describe("Alerts", function()
       settings = function() return settings end,
       now = function() return clock end,
       out = {
-        banner = function(icon, text) calls.banner[#calls.banner + 1] = { icon = icon, text = text } end,
+        -- text: the whole banner as one line (head and reason line joined), to compare with the chat
+        banner = function(icon, head, detail)
+          calls.banner[#calls.banner + 1] = {
+            icon = icon, head = head, detail = detail, text = detail and (head .. " " .. detail) or head,
+          }
+        end,
         chat = function(text) calls.chat[#calls.chat + 1] = text end,
         sound = function(resolved) calls.sound[#calls.sound + 1] = resolved end,
       },
@@ -71,6 +76,29 @@ describe("Alerts", function()
     end)
   end)
 
+  describe("SplitAtReason", function()
+    it("splits before the sentence that holds the reason", function()
+      assert.same({ "{list} {name} {trigger}!", "Reason: {reason} (by {by})" },
+        { ns.Alerts.SplitAtReason("{list} {name} {trigger}! Reason: {reason} (by {by})") })
+    end)
+
+    it("knows the German alias", function()
+      assert.same({ "{liste} {name} {anlass}!", "Grund: {grund} (von {von})" },
+        { ns.Alerts.SplitAtReason("{liste} {name} {anlass}! Grund: {grund} (von {von})") })
+    end)
+
+    it("splits right before the reason when no sentence ends before it", function()
+      assert.same({ "{name} {trigger}:", "{reason} ({by})" },
+        { ns.Alerts.SplitAtReason("{name} {trigger}: {reason} ({by})") })
+    end)
+
+    it("does not split without a reason or when the reason comes first", function()
+      assert.same({ "{list} {name}" }, { ns.Alerts.SplitAtReason("{list} {name}") })
+      assert.same({ "{reason} - {name}" }, { ns.Alerts.SplitAtReason("{reason} - {name}") })
+      assert.same({ "Reason: {reason}" }, { ns.Alerts.SplitAtReason("Reason: {reason}") })
+    end)
+  end)
+
   describe("chat colors", function()
     local function one() return { match("Jaina", "pöbelt") } end
 
@@ -99,6 +127,22 @@ describe("Alerts", function()
       assert.equals("Blacklisted player Spitz Ohr is in your group! Reason: Blabla (by Sacricola Umbrae)",
         plain(calls.banner[1].text))
       assert.equals(plain(calls.banner[1].text), plain(calls.chat[1]))
+    end)
+
+    it("puts the reason's sentence on its own banner line and keeps the chat in one line", function()
+      settings.lists.friendly.chat = true
+      settings.lists.friendly.text = ns.L["DEFAULT_TEXT"]
+      assert.is_true(alerts:Fire("friendly", "Spitz Ohr", { match("Sacricola Umbrae", "Blabla") }, "group"))
+      assert.equals("Blacklisted player Spitz Ohr is in your group!", plain(calls.banner[1].head))
+      assert.equals("Reason: Blabla (by Sacricola Umbrae)", plain(calls.banner[1].detail))
+      assert.equals("Blacklisted player Spitz Ohr is in your group! Reason: Blabla (by Sacricola Umbrae)",
+        plain(calls.chat[1]))
+    end)
+
+    it("keeps a banner without a reason placeholder in one line", function()
+      settings.lists.enemy.text = "{list} {name}"
+      assert.is_true(alerts:Fire("enemy", "Garrosh Hellscream", one(), "sight"))
+      assert.is_nil(calls.banner[1].detail)
     end)
 
     it("labels enemies as KOS targets, also through the German alias", function()
@@ -197,11 +241,13 @@ describe("Alerts", function()
       settings.lists.friendly.text = ""
       local a = ns.Alerts.New({
         settings = function() return settings end, now = function() return clock end,
-        out = { banner = function(_, text) calls.banner[#calls.banner + 1] = { text = text } end },
+        out = { banner = function(_, head, detail)
+          calls.banner[#calls.banner + 1] = { head = head, detail = detail }
+        end },
       })
       a:Fire("friendly", "Thrall Earthson", one(), "group")
-      assert.equals("Blacklist-Spieler Thrall Earthson ist in deiner Gruppe! Grund: pöbelt (von Jaina)",
-        plain(calls.banner[1].text))
+      assert.equals("Blacklist-Spieler Thrall Earthson ist in deiner Gruppe!", plain(calls.banner[1].head))
+      assert.equals("Grund: pöbelt (von Jaina)", plain(calls.banner[1].detail))
     end)
 
     it("applies a cooldown per player of the configured length", function()
@@ -387,6 +433,21 @@ describe("Banner", function()
       end
     end
   end
+  local function fontStrings()
+    local out = {}
+    for _, r in ipairs(regions) do
+      if r.kind == "FontString" then out[#out + 1] = r end
+    end
+    return out
+  end
+  -- Which of the given calls came last.
+  local function lastOf(r, names)
+    for i = #r.calls, 1, -1 do
+      for _, name in ipairs(names) do
+        if r.calls[i].name == name then return name end
+      end
+    end
+  end
   local function setupRecorders()
     regions = {}
     _G.UIParent = recorder("UIParent")
@@ -398,10 +459,7 @@ describe("Banner", function()
   it("wraps long text to at most two lines and uses the icon's room when there is no icon", function()
     setupRecorders()
     wowEnv.Banner.Show("icon", "text")
-    local text
-    for _, r in ipairs(regions) do
-      if r.kind == "FontString" then text = r end
-    end
+    local text = fontStrings()[1]
     assert.same({ 2 }, last(text, "SetMaxLines"))
     assert.same({ true }, last(text, "SetWordWrap"))
     local anchors = anchorsSinceClear(text)
@@ -411,6 +469,26 @@ describe("Banner", function()
     anchors = anchorsSinceClear(text)
     assert.equals("LEFT", anchors[1][1])
     assert.is_number(anchors[1][2]) -- offset from the banner's own left edge
+  end)
+
+  it("shows the reason on its own line below the text and hides it without one", function()
+    setupRecorders()
+    wowEnv.Banner.Show("icon", "head", "Reason: long reason")
+    local title, detail = fontStrings()[1], fontStrings()[2]
+    local frame
+    for _, r in ipairs(regions) do
+      if r.kind == "Frame" then frame = r; break end
+    end
+    assert.same({ "Reason: long reason" }, last(detail, "SetText"))
+    assert.equals("Show", lastOf(detail, { "Show", "Hide" }))
+    assert.same({ true }, last(detail, "SetWordWrap"))
+    assert.same({ 2 }, last(detail, "SetMaxLines"))
+    assert.equals(title, anchorsSinceClear(detail)[1][2]) -- right below the text
+    assert.is_true(last(frame, "SetHeight")[1] >= 70)
+
+    wowEnv.Banner.Show("icon", "head")
+    assert.equals("Hide", lastOf(detail, { "Show", "Hide" }))
+    assert.equals(70, last(frame, "SetHeight")[1])
   end)
 
   it("plays the intro animation on every show", function()

@@ -231,6 +231,22 @@ local function memberCells(item)
   }, { m.online and OTHER_COLOR or C.muted, C.text, C.text, C.muted, C.muted }
 end
 
+-- The full reason the reason column may cut off: the hovered entry, or on a player row the first
+-- match (the own one when there is one). No tooltip without a reason.
+local function showRowTooltip(row)
+  local item = row.item
+  local m = item and (item.kind == "entry" and item.match or item.kind == "player" and item.matches[1])
+  local reason = m and m.entry.reason
+  if not reason or reason == "" then return end
+  GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+  GameTooltip:ClearLines()
+  GameTooltip:AddLine(showName(m.entry.name), 1, 1, 1)
+  GameTooltip:AddLine(Escape(reason), C.text.r, C.text.g, C.text.b, true)
+  local by = byText(m)
+  if by ~= "" then GameTooltip:AddLine(by, C.by.r, C.by.g, C.by.b) end
+  GameTooltip:Show()
+end
+
 local function onRowClick(item)
   if item.kind == "member" then return end
   if item.kind == "player" then
@@ -254,6 +270,8 @@ local function initRow(row, item)
       row.cells[i] = fs
     end
     row:SetScript("OnClick", function(self) onRowClick(self.item) end)
+    row:SetScript("OnEnter", showRowTooltip)
+    row:SetScript("OnLeave", function() GameTooltip:Hide() end)
   end
   row.item = item
   -- rows are recycled across tabs, which lay their columns out differently

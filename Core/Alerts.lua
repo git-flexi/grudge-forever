@@ -47,12 +47,37 @@ function Alerts.Render(template, vars, colors)
   end))
 end
 
--- Returns the banner text and the colored chat line for a list's settings.
+local function isReason(token)
+  local key = token:lower()
+  return (ALIASES[key] or key) == "reason"
+end
+
+-- Splits a template so the banner can show the reason on a line of its own: the head ends before the
+-- sentence that holds {reason} (after the last ". ", "! " or "? " before it), or right before {reason}
+-- when no sentence ends there. Returns the template alone when it has no {reason}, or when the head
+-- would hold no placeholder ("Reason: {reason}", "{reason} - {name}").
+function Alerts.SplitAtReason(template)
+  local at
+  for pos, token in template:gmatch("(){(%w+)}") do
+    if isReason(token) then at = pos; break end
+  end
+  if not at then return template end
+  local cut = at
+  for pos in template:sub(1, at - 1):gmatch("[%.!%?]%s+()") do cut = pos end
+  local head = (template:sub(1, cut - 1):gsub("%s+$", ""))
+  if not head:find("{%w+}") then return template end
+  return head, (template:sub(cut):gsub("^%s+", ""))
+end
+
+-- Returns the banner text, the colored chat line and the banner's reason line (nil when the
+-- template has none) for a list's settings. The chat keeps the whole text in one line.
 function Alerts.Compose(list, s, vars)
   local template = (s.text and s.text ~= "") and s.text or L["DEFAULT_TEXT"]
   vars.list = L[LIST_KEYS[list] or list]
-  local banner = Alerts.Render(template, vars, Alerts.BANNER_COLORS)
-  return banner, L["CHAT_WARNING"] .. Alerts.Render(template, vars, Alerts.CHAT_COLORS)
+  local head, tail = Alerts.SplitAtReason(template)
+  local banner = Alerts.Render(head, vars, Alerts.BANNER_COLORS)
+  local detail = tail and Alerts.Render(tail, vars, Alerts.BANNER_COLORS) or nil
+  return banner, L["CHAT_WARNING"] .. Alerts.Render(template, vars, Alerts.CHAT_COLORS), detail
 end
 
 -- Joins distinct non-empty values, at most MAX_SHOWN, followed by " +N" for the rest.
@@ -126,13 +151,13 @@ function Alert:Fire(list, displayName, matches, trigger)
   if trigger == "group" then self.groupSeen[id] = true end
 
   local reason, by = Alerts.Summarize(matches)
-  local text, chatText = Alerts.Compose(list, s, {
+  local text, chatText, detail = Alerts.Compose(list, s, {
     name = displayName, reason = reason, by = by, trigger = L[TRIGGER_KEYS[trigger] or trigger],
   })
 
   local out = self.deps.out
   if s.banner and out.banner then
-    out.banner(Alerts.ICONS[s.icon] or s.icon, text)
+    out.banner(Alerts.ICONS[s.icon] or s.icon, text, detail)
   end
   if s.chat and out.chat then out.chat(chatText) end
   if out.sound then

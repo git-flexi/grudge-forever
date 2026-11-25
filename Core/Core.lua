@@ -88,11 +88,11 @@ local outputs = { banner = ns.Banner.Show, chat = Core.Print, sound = playSound 
 function Core.TestAlert(list)
   local s = Core.sv.settings.lists[list]
   if not s then return end
-  local text, chatText = ns.Alerts.Compose(list, s, {
+  local text, chatText, detail = ns.Alerts.Compose(list, s, {
     name = L["TEST_NAME"], reason = L["TEST_REASON"], by = Core.store:GetCurrentChar() or L["TEST_BY"],
     trigger = L[list == Const.LIST_ENEMY and "TRIGGER_SIGHT" or "TRIGGER_WHISPER"],
   })
-  if s.banner then outputs.banner(ns.Alerts.ICONS[s.icon] or s.icon, text) end
+  if s.banner then outputs.banner(ns.Alerts.ICONS[s.icon] or s.icon, text, detail) end
   if s.chat then outputs.chat(chatText) end
   local sound = ns.Alerts.ResolveSound(s.sound)
   if sound then outputs.sound(sound) end

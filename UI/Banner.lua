@@ -15,6 +15,7 @@ local ICON_SIZE, GLOW_SIZE = 40, 64
 local INTRO_SECONDS, INTRO_RISE = 0.2, 12
 local BG_ALPHA = 0.9
 local MAX_LINES = 2 -- longer text is cut off inside the banner instead of spilling out
+local DETAIL_GAP, DETAIL_PADDING = 4, 14 -- reason line: gap below the text, room above and below both
 
 local frame, fade, intro
 local locked = true
@@ -127,6 +128,14 @@ local function create()
   frame.text:SetWordWrap(true)
   frame.text:SetMaxLines(MAX_LINES)
 
+  -- the reason line below the text (only when the alert text has a reason)
+  frame.detail = frame:CreateFontString(nil, "OVERLAY", Skin.Font("GameFontHighlight"))
+  frame.detail:SetTextColor(text.r, text.g, text.b, 1)
+  frame.detail:SetJustifyH("LEFT")
+  frame.detail:SetWordWrap(true)
+  frame.detail:SetMaxLines(MAX_LINES)
+  frame.detail:Hide()
+
   -- Slides in from INTRO_RISE above while fading in; display() lifts the anchor, OnFinished restores it.
   intro = frame:CreateAnimationGroup()
   local introAlpha = intro:CreateAnimation("Alpha")
@@ -151,19 +160,39 @@ local function create()
   applyPosition()
 end
 
--- The text starts right of the icon, or at the banner's left edge when there is none.
-local function anchorText(withIcon)
-  local t = frame.text
-  t:ClearAllPoints()
-  if withIcon then
-    t:SetPoint("LEFT", frame.icon, "RIGHT", PADDING, 0)
-  else
-    t:SetPoint("LEFT", SIDE, 0)
-  end
-  t:SetPoint("RIGHT", -SIDE, 0)
+local function stringHeight(fs)
+  local h = fs:GetStringHeight()
+  return type(h) == "number" and h or 0
 end
 
-local function display(iconPath, text)
+-- The text starts right of the icon, or at the banner's left edge when there is none. With a reason
+-- line, both sit at the top and the banner grows to fit them; without one, the text is centered.
+local function layoutText(withIcon, detail)
+  local t, d = frame.text, frame.detail
+  t:ClearAllPoints()
+  d:ClearAllPoints()
+  local x = withIcon and (SIDE + ICON_SIZE + PADDING) or SIDE
+  if not detail then
+    if withIcon then
+      t:SetPoint("LEFT", frame.icon, "RIGHT", PADDING, 0)
+    else
+      t:SetPoint("LEFT", SIDE, 0)
+    end
+    t:SetPoint("RIGHT", -SIDE, 0)
+    d:Hide()
+    frame:SetHeight(HEIGHT)
+    return
+  end
+  t:SetPoint("TOPLEFT", frame, "TOPLEFT", x, -DETAIL_PADDING)
+  t:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -SIDE, -DETAIL_PADDING)
+  d:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, -DETAIL_GAP)
+  d:SetPoint("TOPRIGHT", t, "BOTTOMRIGHT", 0, -DETAIL_GAP)
+  d:Show()
+  local needed = DETAIL_PADDING * 2 + stringHeight(t) + DETAIL_GAP + stringHeight(d)
+  frame:SetHeight(math.max(HEIGHT, needed))
+end
+
+local function display(iconPath, text, detail)
   if not frame then create() end
   generation = generation + 1
   local mine = generation
@@ -180,8 +209,10 @@ local function display(iconPath, text)
     frame.icon:Hide()
     frame.iconGlow:Hide()
   end
-  anchorText(withIcon)
+  if detail == "" then detail = nil end
   frame.text:SetText(text or "")
+  frame.detail:SetText(detail or "")
+  layoutText(withIcon, detail)
   applyPosition(INTRO_RISE)
   frame:Show()
   intro:Play()
@@ -191,9 +222,10 @@ local function display(iconPath, text)
   end)
 end
 
-function Banner.Show(iconPath, text)
+-- detail: the reason line shown below the text (optional).
+function Banner.Show(iconPath, text, detail)
   if not CreateFrame then return end
-  display(iconPath, text)
+  display(iconPath, text, detail)
 end
 
 -- Unlocked: show a draggable placeholder. Locked: hide it again.
