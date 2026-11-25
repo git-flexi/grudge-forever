@@ -1,8 +1,9 @@
-# GrudgeForever 1.2.0
+# GrudgeForever 1.3.0
 
-### New look
-- **Fresh design.** The main window, the edit dialog and the import/export dialog have a new dark look with gold accents, in the style of the in-game Adventure Guide. Buttons stay the familiar Blizzard ones.
-- **Tabs on top with counts.** The list tabs sit at the top of the window and show how many players are on each list.
-- **Easier to read lists.** Rows are striped, and the row under your mouse and the selected row are highlighted in gold. Names, reasons and who added an entry each have their own color.
-- **New warning banner.** Warnings appear as a band with gold lines that slides in briefly. The list, the player's name and who added the entry stand out in color.
-- **Calmer chat warnings.** Chat warnings start with a gold "GrudgeForever" instead of a red "WARNING:", in the same colors as the banner.
+### New
+- **See the full reason.** Hover over a player in the list to see the whole reason in a tooltip next to your mouse, together with who added it. With several entries for one player, your own reason is shown.
+- **Resizable window.** Drag the grip in the bottom right corner to make the main window bigger. The reason column gets the extra room, and the window remembers its size and position.
+
+### Changed
+- **Reason on its own line in the banner.** When your warning text contains the reason, the banner shows it on a second line, so more of it fits. The chat line stays as it is.
+- The main window is a little wider by default.
