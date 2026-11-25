@@ -736,6 +736,24 @@ describe("Addon load", function()
       assert.same({ w = 920, h = 600, x = 100, y = 0 }, ns.Core.sv.settings.mainWindow)
     end)
 
+    it("opens wide enough that the resize grip clears the bottom buttons", function()
+      local size
+      local create = CreateFrame
+      _G.CreateFrame = function(kind, name, ...)
+        local f = create(kind, name, ...)
+        if name == "GrudgeForeverMainWindow" then rawset(f, "SetSize", function(_, w, h) size = { w, h } end) end
+        return f
+      end
+      SlashCmdList.GRUDGEFOREVER("")
+      _G.CreateFrame = create
+      -- buttons: 8 + 96 * 4 + 110 + 200 + 5 gaps of 4 = 722; the 16px grip sits 3px from the right edge
+      assert.is_true(size[1] >= 722 + 4 + 16 + 3)
+      local frame = frameNamed("GrudgeForeverMainWindow")
+      rawset(frame, "GetWidth", function() return size[1] end)
+      wow.fire(frame, "OnSizeChanged")
+      assert.equals(230 + size[1] - 720, rowFor("thrall earthson").cells[2]:GetWidth()) -- the room goes to the reason
+    end)
+
     it("opens with the saved size, kept within the bounds", function()
       ns.Core.sv.settings.mainWindow = { w = 5000, h = 300, x = 10, y = 20 }
       local size, point

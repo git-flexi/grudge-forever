@@ -17,7 +17,7 @@ local TABS = {
 }
 local GUILD_TAB = 3
 -- sort: the Sorting column a click on the header sorts by; flex: the column that takes the extra
--- width of a window wider than BASE_WIDTH (the columns right of it move along)
+-- width of a window wider than LAYOUT_WIDTH (the columns right of it move along)
 local COLUMNS = {
   { key = "MW_COL_NAME", x = 8, width = 160, sort = "name" },
   { key = "MW_COL_REASON", x = 172, width = 230, sort = "reason", flex = true },
@@ -33,8 +33,10 @@ local GUILD_COLUMNS = {
   { key = "MW_COL_SEEN", x = 484, width = 160, sort = "seen" },
 }
 local SORT_ARROW = "Interface\\Buttons\\UI-SortArrow"
--- the window can be resized between its normal size and MAX_*
-local BASE_WIDTH, BASE_HEIGHT = 720, 508
+-- the window can be resized between its normal size and MAX_*; the columns above are laid out for
+-- LAYOUT_WIDTH, the normal width adds room so the resize grip clears the bottom button row
+local LAYOUT_WIDTH = 720
+local BASE_WIDTH, BASE_HEIGHT = 750, 508
 local MAX_WIDTH, MAX_HEIGHT = 1400, 1000
 local GRIP = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-"
 local OWN_COLOR = C.gold
@@ -66,7 +68,7 @@ end
 local function extraWidth()
   local width = frame and frame:GetWidth()
   if type(width) ~= "number" then return 0 end
-  return math.max(0, width - BASE_WIDTH)
+  return math.max(0, width - LAYOUT_WIDTH)
 end
 
 -- The shown tab's columns laid out for the current window width.
