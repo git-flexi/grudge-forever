@@ -775,7 +775,7 @@ describe("Addon load", function()
     -- GameTooltip stand-in that records the lines it gets.
     local function tooltipRecorder()
       local tip = { lines = {}, wraps = {}, shown = false }
-      tip.SetOwner = function() end
+      tip.SetOwner = function(_, owner, anchor) tip.owner, tip.anchor = owner, anchor end
       tip.ClearLines = function() tip.lines, tip.wraps = {}, {} end
       tip.SetText = function(_, text) tip.lines = { text } end
       tip.AddLine = function(_, text, _, _, _, wrap)
@@ -795,6 +795,8 @@ describe("Addon load", function()
       local row = rowFor("thrall earthson") -- own entry plus a foreign one ("afk")
       wow.fire(row, "OnEnter")
       assert.is_true(GameTooltip.shown)
+      assert.equals("ANCHOR_CURSOR_RIGHT", GameTooltip.anchor) -- next to the mouse, not the far end of the row
+      assert.equals(row, GameTooltip.owner)
       assert.equals("Thrall Earthson", GameTooltip.lines[1])
       assert.equals(long:sub(1, 80), GameTooltip.lines[2])
       assert.is_true(GameTooltip.wraps[2])

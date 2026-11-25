@@ -258,7 +258,7 @@ local function showRowTooltip(row)
   local m = item and (item.kind == "entry" and item.match or item.kind == "player" and item.matches[1])
   local reason = m and m.entry.reason
   if not reason or reason == "" then return end
-  GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+  GameTooltip:SetOwner(row, "ANCHOR_CURSOR_RIGHT", 16, 0)
   GameTooltip:ClearLines()
   GameTooltip:AddLine(showName(m.entry.name), 1, 1, 1)
   GameTooltip:AddLine(Escape(reason), C.text.r, C.text.g, C.text.b, true)
